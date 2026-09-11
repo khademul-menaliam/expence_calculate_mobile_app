@@ -53,6 +53,9 @@ class AppTheme {
         filled: true,
         fillColor: const Color(0xFFF1F5F9),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        floatingLabelBehavior: FloatingLabelBehavior.always,
+        labelStyle: const TextStyle(color: textSecondary, fontSize: 14),
+        floatingLabelStyle: const TextStyle(color: primaryAccent, fontSize: 13, fontWeight: FontWeight.w600),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: border),
@@ -105,11 +108,12 @@ class AppTheme {
           ),
         ),
       ),
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: primaryAccent,
         foregroundColor: Colors.white,
         elevation: 2,
-        shape: CircleBorder(),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        extendedTextStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, letterSpacing: 0.2),
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: cardBg,

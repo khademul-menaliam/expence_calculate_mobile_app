@@ -114,8 +114,9 @@ class _EditExpenseDialogState extends ConsumerState<EditExpenseDialog> {
                       lastDate: DateTime.now().add(const Duration(days: 365)),
                     );
                     if (pickedDate == null || !mounted) return;
+                    final currentContext = context;
                     final pickedTime = await showTimePicker(
-                      context: context,
+                      context: currentContext,
                       initialTime: TimeOfDay.fromDateTime(_date),
                     );
                     if (pickedTime != null && mounted) {
