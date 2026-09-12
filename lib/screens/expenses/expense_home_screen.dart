@@ -233,6 +233,7 @@ class ExpenseHomeScreen extends ConsumerWidget {
                             ),
                           ),
                           Card(
+                            clipBehavior: Clip.antiAlias,
                             child: ListView.separated(
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
@@ -248,9 +249,23 @@ class ExpenseHomeScreen extends ConsumerWidget {
                                   direction: DismissDirection.endToStart,
                                   background: Container(
                                     alignment: Alignment.centerRight,
-                                    padding: const EdgeInsets.only(right: 16),
+                                    padding: const EdgeInsets.only(right: 20),
                                     color: AppTheme.expenseColor,
-                                    child: const Icon(Icons.delete_outline, color: Colors.white),
+                                    child: const Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        Icon(Icons.delete_outline, color: Colors.white, size: 20),
+                                        SizedBox(width: 4),
+                                        Text(
+                                          'Delete',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                   onDismissed: (_) {
                                     _deleteExpenseWithUndo(context, ref, expense);
@@ -275,17 +290,19 @@ class ExpenseHomeScreen extends ConsumerWidget {
                                         const SizedBox(width: 8),
                                         Container(
                                           padding: const EdgeInsets.symmetric(
-                                              horizontal: 6, vertical: 2),
+                                              horizontal: 7, vertical: 2),
                                           decoration: BoxDecoration(
                                             color: const Color(0xFFF1F5F9),
-                                            borderRadius: BorderRadius.circular(4),
+                                            borderRadius: BorderRadius.circular(6),
+                                            border: Border.all(
+                                                color: const Color(0xFFCBD5E1), width: 0.8),
                                           ),
                                           child: Text(
                                             expense.category,
                                             style: const TextStyle(
                                               fontSize: 11,
                                               color: AppTheme.textSecondary,
-                                              fontWeight: FontWeight.w500,
+                                              fontWeight: FontWeight.w600,
                                             ),
                                           ),
                                         ),

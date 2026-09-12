@@ -91,9 +91,28 @@ class PresetManagementScreen extends ConsumerWidget {
                       ),
                     ],
                   ),
-                  subtitle: Text(
-                    preset.category,
-                    style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: const Color(0xFFCBD5E1), width: 0.8),
+                          ),
+                          child: Text(
+                            preset.category,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AppTheme.textSecondary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,

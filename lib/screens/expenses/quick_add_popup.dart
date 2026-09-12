@@ -570,10 +570,22 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
                                         style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                                       ),
                                       const SizedBox(width: 6),
-                                      Text(
-                                        '(${item.category})',
-                                        style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
-                                      ),
+                                       Container(
+                                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                         decoration: BoxDecoration(
+                                           color: const Color(0xFFF1F5F9),
+                                           borderRadius: BorderRadius.circular(4),
+                                           border: Border.all(color: const Color(0xFFCBD5E1), width: 0.8),
+                                         ),
+                                         child: Text(
+                                           item.category,
+                                           style: const TextStyle(
+                                             color: AppTheme.textSecondary,
+                                             fontSize: 10,
+                                             fontWeight: FontWeight.w600,
+                                           ),
+                                         ),
+                                       ),
                                     ],
                                   ),
                                   Text(
