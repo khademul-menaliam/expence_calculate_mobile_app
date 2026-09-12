@@ -1,6 +1,6 @@
-# flutter_application_1
+# Expense & Goals Tracker
 
-A new Flutter project.
+A lightweight, minimal mobile expense and goals tracker built with Flutter and Drift.
 
 ## Getting Started
 

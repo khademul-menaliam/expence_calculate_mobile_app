@@ -1,11 +1,11 @@
 {
-    "name": "flutter_application_1",
-    "short_name": "flutter_application_1",
+    "name": "Expense & Goals Tracker",
+    "short_name": "Expense & Goals",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
+    "background_color": "#ffffff",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Simple Daily Expense Tracker & Goals App",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

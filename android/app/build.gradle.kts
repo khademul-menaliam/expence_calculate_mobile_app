@@ -38,6 +38,20 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+        resources {
+            excludes += listOf(
+                "META-INF/*.version",
+                "META-INF/LICENSE*",
+                "META-INF/NOTICE*",
+                "/META-INF/{AL2.0,LGPL2.1}"
+            )
+        }
+    }
 }
 
 kotlin {
