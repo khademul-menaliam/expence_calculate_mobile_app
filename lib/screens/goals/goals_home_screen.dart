@@ -311,9 +311,11 @@ class _GoalListTab extends ConsumerWidget {
                         ),
                       ],
                       const SizedBox(height: 4),
-                      Row(
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 4,
                         children: [
-                          if (goal.targetCost != null) ...[
+                          if (goal.targetCost != null)
                             Text(
                               'Target: ${currency.format(goal.targetCost!)}',
                               style: const TextStyle(
@@ -322,8 +324,6 @@ class _GoalListTab extends ConsumerWidget {
                                 color: AppTheme.primaryAccent,
                               ),
                             ),
-                            const SizedBox(width: 12),
-                          ],
                           if (isDoneTab && goal.completedAt != null)
                             Text(
                               'Done: ${DateFormat('MMM d, yyyy').format(goal.completedAt!)}',

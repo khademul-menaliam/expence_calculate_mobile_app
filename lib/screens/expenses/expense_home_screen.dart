@@ -5,6 +5,7 @@ import '../../database/app_database.dart';
 import '../../providers/expense_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../providers/currency_provider.dart';
+import '../../widgets/app_toast.dart';
 import '../../widgets/currency_selector_dialog.dart';
 import 'edit_expense_dialog.dart';
 import 'preset_management_dialog.dart';
@@ -377,25 +378,18 @@ class ExpenseHomeScreen extends ConsumerWidget {
     await repo.deleteExpense(expense.id);
 
     if (context.mounted) {
-      ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Deleted "${expense.name}"'),
-          duration: const Duration(seconds: 4),
-          action: SnackBarAction(
-            label: 'UNDO',
-            textColor: Colors.amber,
-            onPressed: () async {
-              await repo.addExpense(
-                name: expense.name,
-                category: expense.category,
-                amount: expense.amount,
-                type: expense.type,
-                date: expense.date,
-              );
-            },
-          ),
-        ),
+      AppToast.showUndo(
+        context: context,
+        message: 'Deleted "${expense.name}"',
+        onUndo: () async {
+          await repo.addExpense(
+            name: expense.name,
+            category: expense.category,
+            amount: expense.amount,
+            type: expense.type,
+            date: expense.date,
+          );
+        },
       );
     }
   }

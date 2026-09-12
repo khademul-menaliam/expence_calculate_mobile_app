@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_toast.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../database/app_database.dart';
@@ -176,25 +177,18 @@ class _EditExpenseDialogState extends ConsumerState<EditExpenseDialog> {
 
               final rootCtx = context;
               if (rootCtx.mounted) {
-                ScaffoldMessenger.of(rootCtx).clearSnackBars();
-                ScaffoldMessenger.of(rootCtx).showSnackBar(
-                  SnackBar(
-                    content: Text('Deleted "${itemToDelete.name}"'),
-                    duration: const Duration(seconds: 4),
-                    action: SnackBarAction(
-                      label: 'UNDO',
-                      textColor: Colors.amber,
-                      onPressed: () async {
-                        await repo.addExpense(
-                          name: itemToDelete.name,
-                          category: itemToDelete.category,
-                          amount: itemToDelete.amount,
-                          type: itemToDelete.type,
-                          date: itemToDelete.date,
-                        );
-                      },
-                    ),
-                  ),
+                AppToast.showUndo(
+                  context: rootCtx,
+                  message: 'Deleted "${itemToDelete.name}"',
+                  onUndo: () async {
+                    await repo.addExpense(
+                      name: itemToDelete.name,
+                      category: itemToDelete.category,
+                      amount: itemToDelete.amount,
+                      type: itemToDelete.type,
+                      date: itemToDelete.date,
+                    );
+                  },
                 );
               }
             }
