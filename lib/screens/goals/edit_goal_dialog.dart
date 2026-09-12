@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../database/app_database.dart';
+import '../../providers/currency_provider.dart';
 import '../../providers/goal_provider.dart';
 
 class EditGoalDialog extends ConsumerStatefulWidget {
@@ -49,6 +50,8 @@ class _EditGoalDialogState extends ConsumerState<EditGoalDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final currencySymbol = ref.watch(currencyProvider).symbol;
+
     return AlertDialog(
       title: const Text('Edit Goal'),
       content: SingleChildScrollView(
@@ -67,9 +70,9 @@ class _EditGoalDialogState extends ConsumerState<EditGoalDialog> {
               TextFormField(
                 controller: _costController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Target Cost (Optional)',
-                  prefixText: '\$ ',
+                  prefixText: '$currencySymbol ',
                 ),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return null;

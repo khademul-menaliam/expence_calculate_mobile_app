@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import '../../database/app_database.dart';
+import '../../providers/currency_provider.dart';
 import '../../providers/expense_provider.dart';
 import '../../theme/app_theme.dart';
 
@@ -11,7 +11,7 @@ class PresetManagementScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final presetsAsync = ref.watch(presetsStreamProvider);
-    final currencyFormatter = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
+    final currency = ref.watch(currencyProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -118,7 +118,7 @@ class PresetManagementScreen extends ConsumerWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        currencyFormatter.format(preset.defaultAmount),
+                        currency.format(preset.defaultAmount),
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 16,
@@ -219,9 +219,9 @@ class PresetManagementScreen extends ConsumerWidget {
                       TextFormField(
                         controller: amountController,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Default Amount',
-                          prefixText: '\$ ',
+                          prefixText: '${ref.read(currencyProvider).symbol} ',
                         ),
                         validator: (val) {
                           if (val == null || val.trim().isEmpty) return 'Enter amount';

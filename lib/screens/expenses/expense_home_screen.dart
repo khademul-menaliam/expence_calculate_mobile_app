@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import '../../database/app_database.dart';
 import '../../providers/expense_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../providers/currency_provider.dart';
+import '../../widgets/currency_selector_dialog.dart';
 import 'edit_expense_dialog.dart';
 import 'preset_management_dialog.dart';
 import 'quick_add_popup.dart';
@@ -15,12 +17,23 @@ class ExpenseHomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final stats = ref.watch(expenseStatsProvider);
     final expensesAsync = ref.watch(expensesStreamProvider);
-    final currencyFormat = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
+    final currency = ref.watch(currencyProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Daily Expenses'),
         actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ActionChip(
+              avatar: const Icon(Icons.currency_exchange, size: 16, color: AppTheme.primaryAccent),
+              label: Text(
+                '${currency.symbol} (${currency.code})',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+              ),
+              onPressed: () => showCurrencySelector(context, ref),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.tune_outlined),
             tooltip: 'Manage Presets',
@@ -65,7 +78,7 @@ class ExpenseHomeScreen extends ConsumerWidget {
                               ),
                             ),
                             Text(
-                              currencyFormat.format(stats.netBalance),
+                              currency.format(stats.netBalance),
                               style: TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.w800,
@@ -85,17 +98,17 @@ class ExpenseHomeScreen extends ConsumerWidget {
                           children: [
                             _SummaryItem(
                               label: 'Today',
-                              amount: currencyFormat.format(stats.todayTotal),
+                              amount: currency.format(stats.todayTotal),
                             ),
                             const _VerticalDivider(),
                             _SummaryItem(
                               label: 'This Week',
-                              amount: currencyFormat.format(stats.weekTotal),
+                              amount: currency.format(stats.weekTotal),
                             ),
                             const _VerticalDivider(),
                             _SummaryItem(
                               label: 'This Month',
-                              amount: currencyFormat.format(stats.monthTotal),
+                              amount: currency.format(stats.monthTotal),
                             ),
                           ],
                         ),
@@ -143,7 +156,7 @@ class ExpenseHomeScreen extends ConsumerWidget {
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
-                                  currencyFormat.format(entry.value),
+                                  currency.format(entry.value),
                                   style: const TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w700,
@@ -314,7 +327,7 @@ class ExpenseHomeScreen extends ConsumerWidget {
                                           fontSize: 12, color: AppTheme.textSecondary),
                                     ),
                                     trailing: Text(
-                                      '${isExpense ? "-" : "+"}${currencyFormat.format(expense.amount)}',
+                                      '${isExpense ? "-" : "+"}${currency.format(expense.amount)}',
                                       style: TextStyle(
                                         fontSize: 15,
                                         fontWeight: FontWeight.w700,

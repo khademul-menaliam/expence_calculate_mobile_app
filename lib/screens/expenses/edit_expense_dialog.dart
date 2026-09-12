@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../database/app_database.dart';
+import '../../providers/currency_provider.dart';
 import '../../providers/expense_provider.dart';
 import '../../theme/app_theme.dart';
 
@@ -49,6 +50,8 @@ class _EditExpenseDialogState extends ConsumerState<EditExpenseDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final currencySymbol = ref.watch(currencyProvider).symbol;
+
     return AlertDialog(
       title: const Text('Edit Entry'),
       content: SingleChildScrollView(
@@ -87,9 +90,9 @@ class _EditExpenseDialogState extends ConsumerState<EditExpenseDialog> {
               TextFormField(
                 controller: _amountController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Amount',
-                  prefixText: '\$ ',
+                  prefixText: '$currencySymbol ',
                 ),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return 'Enter amount';

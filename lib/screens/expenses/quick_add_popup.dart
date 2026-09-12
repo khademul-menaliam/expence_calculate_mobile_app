@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../database/app_database.dart';
+import '../../providers/currency_provider.dart';
 import '../../providers/expense_provider.dart';
 import '../../theme/app_theme.dart';
 
@@ -34,7 +35,6 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
 
   // Running session log inside popup
   final List<_SessionItem> _sessionAddedItems = [];
-  final _currencyFormat = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
 
   double get _sessionTotal {
     return _sessionAddedItems.fold(0.0, (sum, item) {
@@ -146,6 +146,8 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
     final overrideController = TextEditingController(text: preset.defaultAmount.toStringAsFixed(2));
     final dialogKey = GlobalKey<FormState>();
 
+    final currencySymbol = ref.read(currencyProvider).symbol;
+
     showDialog(
       context: context,
       builder: (dialogCtx) {
@@ -157,9 +159,9 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
               controller: overrideController,
               autofocus: true,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'One-time Amount',
-                prefixText: '\$ ',
+                prefixText: '$currencySymbol ',
               ),
               validator: (val) {
                 if (val == null || val.trim().isEmpty) return 'Enter amount';
@@ -194,6 +196,7 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
   @override
   Widget build(BuildContext context) {
     final presetsAsync = ref.watch(presetsByTypeStreamProvider(_type));
+    final currency = ref.watch(currencyProvider);
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final isExpense = _type == 'expense';
 
@@ -406,7 +409,7 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
                                       ),
                                     ),
                                     Text(
-                                      _currencyFormat.format(preset.defaultAmount),
+                                      currency.format(preset.defaultAmount),
                                       style: TextStyle(
                                         fontWeight: FontWeight.w700,
                                         fontSize: 13,
@@ -471,9 +474,9 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
                             child: TextFormField(
                               controller: _amountController,
                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              decoration: const InputDecoration(
+                              decoration: InputDecoration(
                                 labelText: 'Amount',
-                                prefixText: '\$ ',
+                                prefixText: '${currency.symbol} ',
                               ),
                               validator: (v) {
                                 if (v == null || v.trim().isEmpty) return 'Required';
@@ -532,7 +535,7 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
                         ),
                       ),
                       Text(
-                        'Session Net: ${_currencyFormat.format(_sessionTotal)}',
+                        'Session Net: ${currency.format(_sessionTotal)}',
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
@@ -596,7 +599,7 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
                               ),
                               const Spacer(),
                               Text(
-                                '${itemIsExpense ? "-" : "+"}${_currencyFormat.format(item.amount)}',
+                                '${itemIsExpense ? "-" : "+"}${currency.format(item.amount)}',
                                 style: TextStyle(
                                   fontWeight: FontWeight.w700,
                                   fontSize: 13,

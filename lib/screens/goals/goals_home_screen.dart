@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../database/app_database.dart';
+import '../../providers/currency_provider.dart';
 import '../../providers/goal_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/currency_selector_dialog.dart';
 import 'edit_goal_dialog.dart';
 
 class GoalsHomeScreen extends ConsumerStatefulWidget {
@@ -76,6 +78,19 @@ class _GoalsHomeScreenState extends ConsumerState<GoalsHomeScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Goals / Wishlist'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ActionChip(
+              avatar: const Icon(Icons.currency_exchange, size: 16, color: AppTheme.primaryAccent),
+              label: Text(
+                '${ref.watch(currencyProvider).symbol} (${ref.watch(currencyProvider).code})',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+              ),
+              onPressed: () => showCurrencySelector(context, ref),
+            ),
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: AppTheme.primaryAccent,
@@ -182,7 +197,7 @@ class _GoalsHomeScreenState extends ConsumerState<GoalsHomeScreen>
   }
 }
 
-class _GoalListTab extends StatelessWidget {
+class _GoalListTab extends ConsumerWidget {
   final AsyncValue<List<Goal>> goalsAsync;
   final String emptyTitle;
   final String emptySubtitle;
@@ -202,8 +217,8 @@ class _GoalListTab extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final currencyFormat = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currency = ref.watch(currencyProvider);
 
     return goalsAsync.when(
       data: (goals) {
@@ -280,7 +295,7 @@ class _GoalListTab extends StatelessWidget {
                       children: [
                         if (goal.targetCost != null) ...[
                           Text(
-                            'Target: ${currencyFormat.format(goal.targetCost)}',
+                            'Target: ${currency.format(goal.targetCost!)}',
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
