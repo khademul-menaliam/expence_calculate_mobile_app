@@ -24,6 +24,7 @@ class QuickAddPopup extends ConsumerStatefulWidget {
 
 class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
   String _type = 'expense'; // 'expense' or 'income'
+  DateTime _selectedDate = DateTime.now();
 
   // Manual "Other" input controllers
   final _nameController = TextEditingController();
@@ -41,6 +42,21 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
     });
   }
 
+  String _dateLabel(DateTime dt) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final dtOnly = DateTime(dt.year, dt.month, dt.day);
+
+    if (dtOnly.isAtSameMomentAs(today)) {
+      return 'Today (${DateFormat('MMM d').format(dt)})';
+    } else if (dtOnly.isAtSameMomentAs(yesterday)) {
+      return 'Yesterday (${DateFormat('MMM d').format(dt)})';
+    } else {
+      return DateFormat('MMM d, yyyy').format(dt);
+    }
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -56,7 +72,7 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
       category: preset.category,
       amount: amount,
       type: _type,
-      date: DateTime.now(),
+      date: _selectedDate,
     );
 
     setState(() {
@@ -68,7 +84,7 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
           category: preset.category,
           amount: amount,
           type: _type,
-          time: DateFormat.jm().format(DateTime.now()),
+          time: DateFormat.jm().format(_selectedDate),
         ),
       );
     });
@@ -87,7 +103,7 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
       category: category,
       amount: amount,
       type: _type,
-      date: DateTime.now(),
+      date: _selectedDate,
     );
 
     setState(() {
@@ -99,7 +115,7 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
           category: category,
           amount: amount,
           type: _type,
-          time: DateFormat.jm().format(DateTime.now()),
+          time: DateFormat.jm().format(_selectedDate),
         ),
       );
       _nameController.clear();
@@ -247,7 +263,66 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
+
+          // Date Selector Strip
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            color: const Color(0xFFF8FAFC),
+            child: Row(
+              children: [
+                const Icon(Icons.calendar_today_outlined, size: 16, color: AppTheme.primaryAccent),
+                const SizedBox(width: 6),
+                Text(
+                  'Logging for: ${_dateLabel(_selectedDate)}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const Spacer(),
+                InkWell(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _selectedDate,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                    );
+                    if (picked != null) {
+                      setState(() {
+                        _selectedDate = DateTime(
+                          picked.year,
+                          picked.month,
+                          picked.day,
+                          DateTime.now().hour,
+                          DateTime.now().minute,
+                        );
+                      });
+                    }
+                  },
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit_calendar, size: 14, color: AppTheme.primaryAccent),
+                        SizedBox(width: 4),
+                        Text(
+                          'Change Date',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.primaryAccent,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           const Divider(height: 1, color: AppTheme.border),
 
           // Main Scrollable Area

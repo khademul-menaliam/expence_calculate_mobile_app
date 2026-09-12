@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../database/app_database.dart';
 import '../../providers/expense_provider.dart';
+import '../../theme/app_theme.dart';
 
 class EditExpenseDialog extends ConsumerStatefulWidget {
   final Expense expense;
@@ -137,6 +138,66 @@ class _EditExpenseDialogState extends ConsumerState<EditExpenseDialog> {
         ),
       ),
       actions: [
+        IconButton(
+          icon: const Icon(Icons.delete_outline, color: AppTheme.expenseColor),
+          tooltip: 'Delete entry',
+          onPressed: () async {
+            final confirm = await showDialog<bool>(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Text('Delete Entry?'),
+                content: Text('Are you sure you want to delete "${widget.expense.name}"?'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(false),
+                    child: const Text('Cancel'),
+                  ),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.expenseColor,
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: () => Navigator.of(ctx).pop(true),
+                    child: const Text('Delete'),
+                  ),
+                ],
+              ),
+            );
+
+            if (confirm == true && context.mounted) {
+              final nav = Navigator.of(context);
+              final repo = ref.read(expenseRepositoryProvider);
+              final itemToDelete = widget.expense;
+              await repo.deleteExpense(itemToDelete.id);
+              nav.pop();
+
+              final rootCtx = context;
+              if (rootCtx.mounted) {
+                ScaffoldMessenger.of(rootCtx).clearSnackBars();
+                ScaffoldMessenger.of(rootCtx).showSnackBar(
+                  SnackBar(
+                    content: Text('Deleted "${itemToDelete.name}"'),
+                    duration: const Duration(seconds: 4),
+                    action: SnackBarAction(
+                      label: 'UNDO',
+                      textColor: Colors.amber,
+                      onPressed: () async {
+                        await repo.addExpense(
+                          name: itemToDelete.name,
+                          category: itemToDelete.category,
+                          amount: itemToDelete.amount,
+                          type: itemToDelete.type,
+                          date: itemToDelete.date,
+                        );
+                      },
+                    ),
+                  ),
+                );
+              }
+            }
+          },
+        ),
+        const Spacer(),
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),

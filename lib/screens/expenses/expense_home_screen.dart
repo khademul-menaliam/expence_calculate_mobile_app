@@ -253,14 +253,14 @@ class ExpenseHomeScreen extends ConsumerWidget {
                                     child: const Icon(Icons.delete_outline, color: Colors.white),
                                   ),
                                   onDismissed: (_) {
-                                    ref.read(expenseRepositoryProvider).deleteExpense(expense.id);
+                                    _deleteExpenseWithUndo(context, ref, expense);
                                   },
                                   child: ListTile(
                                     contentPadding:
                                         const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                                     onTap: () => EditExpenseDialog.show(context, expense),
                                     onLongPress: () {
-                                      ref.read(expenseRepositoryProvider).deleteExpense(expense.id);
+                                      _deleteExpenseWithUndo(context, ref, expense);
                                     },
                                     title: Row(
                                       children: [
@@ -336,6 +336,35 @@ class ExpenseHomeScreen extends ConsumerWidget {
         label: const Text('Quick Add'),
       ),
     );
+  }
+
+  Future<void> _deleteExpenseWithUndo(
+      BuildContext context, WidgetRef ref, Expense expense) async {
+    final repo = ref.read(expenseRepositoryProvider);
+    await repo.deleteExpense(expense.id);
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Deleted "${expense.name}"'),
+          duration: const Duration(seconds: 4),
+          action: SnackBarAction(
+            label: 'UNDO',
+            textColor: Colors.amber,
+            onPressed: () async {
+              await repo.addExpense(
+                name: expense.name,
+                category: expense.category,
+                amount: expense.amount,
+                type: expense.type,
+                date: expense.date,
+              );
+            },
+          ),
+        ),
+      );
+    }
   }
 
   Map<String, List<Expense>> _groupExpensesByDate(List<Expense> expenses) {
