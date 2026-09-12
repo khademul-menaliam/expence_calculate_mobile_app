@@ -97,7 +97,8 @@ class _EditExpenseDialogState extends ConsumerState<EditExpenseDialog> {
                 ),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return 'Enter amount';
-                  final parsed = double.tryParse(v.trim());
+                  final sanitized = v.trim().replaceAll(',', '.');
+                  final parsed = double.tryParse(sanitized);
                   if (parsed == null || parsed <= 0) return 'Enter valid amount';
                   return null;
                 },
@@ -105,36 +106,39 @@ class _EditExpenseDialogState extends ConsumerState<EditExpenseDialog> {
               const SizedBox(height: 12),
 
               // Date display & picker button
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Date & Time', style: TextStyle(fontSize: 14)),
-                subtitle: Text(DateFormat('yyyy-MM-dd HH:mm').format(_date)),
-                trailing: IconButton(
-                  icon: const Icon(Icons.calendar_today_outlined, size: 20),
-                  onPressed: () async {
-                    final pickedDate = await showDatePicker(
-                      context: context,
-                      initialDate: _date,
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime.now().add(const Duration(days: 365)),
-                    );
-                    if (pickedDate == null || !context.mounted) return;
-                    final pickedTime = await showTimePicker(
-                      context: context,
-                      initialTime: TimeOfDay.fromDateTime(_date),
-                    );
-                    if (pickedTime != null && mounted) {
-                      setState(() {
-                        _date = DateTime(
-                          pickedDate.year,
-                          pickedDate.month,
-                          pickedDate.day,
-                          pickedTime.hour,
-                          pickedTime.minute,
-                        );
-                      });
-                    }
-                  },
+              Material(
+                color: Colors.transparent,
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Date & Time', style: TextStyle(fontSize: 14)),
+                  subtitle: Text(DateFormat('yyyy-MM-dd HH:mm').format(_date)),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.calendar_today_outlined, size: 20),
+                    onPressed: () async {
+                      final pickedDate = await showDatePicker(
+                        context: context,
+                        initialDate: _date,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                      );
+                      if (pickedDate == null || !context.mounted) return;
+                      final pickedTime = await showTimePicker(
+                        context: context,
+                        initialTime: TimeOfDay.fromDateTime(_date),
+                      );
+                      if (pickedTime != null && mounted) {
+                        setState(() {
+                          _date = DateTime(
+                            pickedDate.year,
+                            pickedDate.month,
+                            pickedDate.day,
+                            pickedTime.hour,
+                            pickedTime.minute,
+                          );
+                        });
+                      }
+                    },
+                  ),
                 ),
               ),
             ],
@@ -204,10 +208,13 @@ class _EditExpenseDialogState extends ConsumerState<EditExpenseDialog> {
           onPressed: () async {
             if (_formKey.currentState!.validate()) {
               final nav = Navigator.of(context);
+              final sanitizedAmount = _amountController.text.trim().replaceAll(',', '.');
+              final parsedAmount = double.tryParse(sanitizedAmount) ?? widget.expense.amount;
+
               final updated = widget.expense.copyWith(
                 name: _nameController.text.trim(),
                 category: _categoryController.text.trim(),
-                amount: double.parse(_amountController.text.trim()),
+                amount: parsedAmount,
                 type: _type,
                 date: _date,
               );

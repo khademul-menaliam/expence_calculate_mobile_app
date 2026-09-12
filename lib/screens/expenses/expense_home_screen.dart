@@ -365,6 +365,7 @@ class ExpenseHomeScreen extends ConsumerWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'expense_home_fab',
         onPressed: () => QuickAddPopup.show(context),
         icon: const Icon(Icons.add),
         label: const Text('Quick Add'),

@@ -152,6 +152,7 @@ class PresetManagementScreen extends ConsumerWidget {
         error: (err, _) => Center(child: Text('Error: $err')),
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'preset_management_fab',
         onPressed: () => _showPresetFormDialog(context, ref),
         child: const Icon(Icons.add),
       ),
@@ -228,7 +229,8 @@ class PresetManagementScreen extends ConsumerWidget {
                         ),
                         validator: (val) {
                           if (val == null || val.trim().isEmpty) return 'Enter amount';
-                          final parsed = double.tryParse(val.trim());
+                          final sanitized = val.trim().replaceAll(',', '.');
+                          final parsed = double.tryParse(sanitized);
                           if (parsed == null || parsed < 0) return 'Invalid amount';
                           return null;
                         },
@@ -248,7 +250,8 @@ class PresetManagementScreen extends ConsumerWidget {
                     if (formKey.currentState!.validate()) {
                       final name = nameController.text.trim();
                       final category = categoryController.text.trim();
-                      final amount = double.parse(amountController.text.trim());
+                      final sanitized = amountController.text.trim().replaceAll(',', '.');
+                      final amount = double.tryParse(sanitized) ?? 0.0;
 
                       if (preset == null) {
                         await ref.read(expenseRepositoryProvider).addPreset(

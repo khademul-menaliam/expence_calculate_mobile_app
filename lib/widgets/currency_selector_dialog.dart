@@ -62,45 +62,48 @@ void showCurrencySelector(BuildContext context, WidgetRef ref) {
                       final curr = availableCurrencies[index];
                       final isSelected = curr.code == selectedCurrency.code;
 
-                      return ListTile(
-                        leading: Container(
-                          width: 40,
-                          height: 40,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? AppTheme.primaryAccent.withValues(alpha: 0.15)
-                                : const Color(0xFFF1F5F9),
-                            shape: BoxShape.circle,
-                            border: isSelected
-                                ? Border.all(color: AppTheme.primaryAccent, width: 1.5)
-                                : null,
-                          ),
-                          child: Text(
-                            curr.symbol,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                      return Material(
+                        color: Colors.transparent,
+                        child: ListTile(
+                          leading: Container(
+                            width: 40,
+                            height: 40,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
                               color: isSelected
-                                  ? AppTheme.primaryAccent
-                                  : AppTheme.textPrimary,
+                                  ? AppTheme.primaryAccent.withValues(alpha: 0.15)
+                                  : const Color(0xFFF1F5F9),
+                              shape: BoxShape.circle,
+                              border: isSelected
+                                  ? Border.all(color: AppTheme.primaryAccent, width: 1.5)
+                                  : null,
+                            ),
+                            child: Text(
+                              curr.symbol,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: isSelected
+                                    ? AppTheme.primaryAccent
+                                    : AppTheme.textPrimary,
+                              ),
                             ),
                           ),
-                        ),
-                        title: Text(
-                          curr.name,
-                          style: TextStyle(
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                            color: AppTheme.textPrimary,
+                          title: Text(
+                            curr.name,
+                            style: TextStyle(
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                              color: AppTheme.textPrimary,
+                            ),
                           ),
+                          trailing: isSelected
+                              ? const Icon(Icons.check_circle, color: AppTheme.primaryAccent)
+                              : null,
+                          onTap: () {
+                            ref.read(currencyProvider.notifier).setCurrency(curr);
+                            Navigator.of(context).pop();
+                          },
                         ),
-                        trailing: isSelected
-                            ? const Icon(Icons.check_circle, color: AppTheme.primaryAccent)
-                            : null,
-                        onTap: () {
-                          ref.read(currencyProvider.notifier).setCurrency(curr);
-                          Navigator.of(context).pop();
-                        },
                       );
                     },
                   ),

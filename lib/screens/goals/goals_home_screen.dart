@@ -207,6 +207,7 @@ class _GoalsHomeScreenState extends ConsumerState<GoalsHomeScreen>
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'goals_home_fab',
         onPressed: () => AddGoalDialog.show(context),
         icon: const Icon(Icons.add),
         label: const Text('Add Goal'),

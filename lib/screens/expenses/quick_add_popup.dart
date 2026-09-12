@@ -95,7 +95,8 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
 
     final name = _nameController.text.trim();
     final category = _categoryController.text.trim();
-    final amount = double.parse(_amountController.text.trim());
+    final sanitizedAmount = _amountController.text.trim().replaceAll(',', '.');
+    final amount = double.tryParse(sanitizedAmount) ?? 0.0;
 
     final repository = ref.read(expenseRepositoryProvider);
     final id = await repository.addExpense(
@@ -165,7 +166,8 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
               ),
               validator: (val) {
                 if (val == null || val.trim().isEmpty) return 'Enter amount';
-                final p = double.tryParse(val.trim());
+                final sanitized = val.trim().replaceAll(',', '.');
+                final p = double.tryParse(sanitized);
                 if (p == null || p <= 0) return 'Enter valid positive amount';
                 return null;
               },
@@ -180,7 +182,8 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
               style: ElevatedButton.styleFrom(minimumSize: const Size(80, 44)),
               onPressed: () {
                 if (dialogKey.currentState!.validate()) {
-                  final overrideAmount = double.parse(overrideController.text.trim());
+                  final sanitized = overrideController.text.trim().replaceAll(',', '.');
+                  final overrideAmount = double.tryParse(sanitized) ?? preset.defaultAmount;
                   Navigator.of(dialogCtx).pop();
                   _addPresetEntry(preset, overrideAmount);
                 }
@@ -377,54 +380,58 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
                       spacing: 8,
                       runSpacing: 8,
                       children: presets.map((preset) {
-                        return InkWell(
-                          onTap: () => _addPresetEntry(preset, preset.defaultAmount),
-                          onLongPress: () => _showPresetAmountOverrideDialog(preset),
+                        return Material(
+                          color: Colors.transparent,
                           borderRadius: BorderRadius.circular(10),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                            decoration: BoxDecoration(
-                              color: isExpense
-                                  ? AppTheme.accentLight.withValues(alpha: 0.4)
-                                  : AppTheme.incomeColor.withValues(alpha: 0.1),
-                              border: Border.all(
+                          child: InkWell(
+                            onTap: () => _addPresetEntry(preset, preset.defaultAmount),
+                            onLongPress: () => _showPresetAmountOverrideDialog(preset),
+                            borderRadius: BorderRadius.circular(10),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              decoration: BoxDecoration(
                                 color: isExpense
-                                    ? AppTheme.primaryAccent.withValues(alpha: 0.3)
-                                    : AppTheme.incomeColor.withValues(alpha: 0.3),
+                                    ? AppTheme.accentLight.withValues(alpha: 0.4)
+                                    : AppTheme.incomeColor.withValues(alpha: 0.1),
+                                border: Border.all(
+                                  color: isExpense
+                                      ? AppTheme.primaryAccent.withValues(alpha: 0.3)
+                                      : AppTheme.incomeColor.withValues(alpha: 0.3),
+                                ),
+                                borderRadius: BorderRadius.circular(10),
                               ),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      preset.name,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 14,
-                                        color: AppTheme.textPrimary,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        preset.name,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 14,
+                                          color: AppTheme.textPrimary,
+                                        ),
                                       ),
-                                    ),
-                                    Text(
-                                      currency.format(preset.defaultAmount),
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 13,
-                                        color: isExpense ? AppTheme.primaryAccent : AppTheme.incomeColor,
+                                      Text(
+                                        currency.format(preset.defaultAmount),
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 13,
+                                          color: isExpense ? AppTheme.primaryAccent : AppTheme.incomeColor,
+                                        ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(width: 8),
-                                Icon(
-                                  Icons.add_circle_outline,
-                                  size: 18,
-                                  color: isExpense ? AppTheme.primaryAccent : AppTheme.incomeColor,
-                                ),
-                              ],
+                                    ],
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Icon(
+                                    Icons.add_circle_outline,
+                                    size: 18,
+                                    color: isExpense ? AppTheme.primaryAccent : AppTheme.incomeColor,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         );
@@ -480,7 +487,8 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
                               ),
                               validator: (v) {
                                 if (v == null || v.trim().isEmpty) return 'Required';
-                                final p = double.tryParse(v.trim());
+                                final sanitized = v.trim().replaceAll(',', '.');
+                                final p = double.tryParse(sanitized);
                                 if (p == null || p <= 0) return 'Invalid';
                                 return null;
                               },

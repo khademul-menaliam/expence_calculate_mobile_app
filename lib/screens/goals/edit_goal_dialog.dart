@@ -76,7 +76,8 @@ class _EditGoalDialogState extends ConsumerState<EditGoalDialog> {
                 ),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return null;
-                  final p = double.tryParse(v.trim());
+                  final sanitized = v.trim().replaceAll(',', '.');
+                  final p = double.tryParse(sanitized);
                   if (p == null || p < 0) return 'Enter valid target cost';
                   return null;
                 },
@@ -92,37 +93,40 @@ class _EditGoalDialogState extends ConsumerState<EditGoalDialog> {
               ),
               const SizedBox(height: 12),
 
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Target Date (Optional)', style: TextStyle(fontSize: 14)),
-                subtitle: Text(
-                  _targetDate != null
-                      ? DateFormat('yyyy-MM-dd').format(_targetDate!)
-                      : 'No target date set',
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (_targetDate != null)
+              Material(
+                color: Colors.transparent,
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Target Date (Optional)', style: TextStyle(fontSize: 14)),
+                  subtitle: Text(
+                    _targetDate != null
+                        ? DateFormat('yyyy-MM-dd').format(_targetDate!)
+                        : 'No target date set',
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_targetDate != null)
+                        IconButton(
+                          icon: const Icon(Icons.clear, size: 20),
+                          onPressed: () => setState(() => _targetDate = null),
+                        ),
                       IconButton(
-                        icon: const Icon(Icons.clear, size: 20),
-                        onPressed: () => setState(() => _targetDate = null),
+                        icon: const Icon(Icons.calendar_today_outlined, size: 20),
+                        onPressed: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: _targetDate ?? DateTime.now().add(const Duration(days: 30)),
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime.now().add(const Duration(days: 3650)),
+                          );
+                          if (picked != null) {
+                            setState(() => _targetDate = picked);
+                          }
+                        },
                       ),
-                    IconButton(
-                      icon: const Icon(Icons.calendar_today_outlined, size: 20),
-                      onPressed: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: _targetDate ?? DateTime.now().add(const Duration(days: 30)),
-                          firstDate: DateTime.now(),
-                          lastDate: DateTime.now().add(const Duration(days: 3650)),
-                        );
-                        if (picked != null) {
-                          setState(() => _targetDate = picked);
-                        }
-                      },
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -141,10 +145,12 @@ class _EditGoalDialogState extends ConsumerState<EditGoalDialog> {
               final navigator = Navigator.of(context);
               final costText = _costController.text.trim();
               final noteText = _noteController.text.trim();
+              final sanitizedCost = costText.replaceAll(',', '.');
+              final targetCostVal = sanitizedCost.isNotEmpty ? double.tryParse(sanitizedCost) : null;
 
               final updated = widget.goal.copyWith(
                 name: _nameController.text.trim(),
-                targetCost: Value(costText.isNotEmpty ? double.parse(costText) : null),
+                targetCost: Value(targetCostVal),
                 note: Value(noteText.isNotEmpty ? noteText : null),
                 targetDate: Value(_targetDate),
               );
