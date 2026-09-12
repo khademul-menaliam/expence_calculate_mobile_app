@@ -51,7 +51,7 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
 
   Future<void> _addPresetEntry(Preset preset, double amount) async {
     final repository = ref.read(expenseRepositoryProvider);
-    await repository.addExpense(
+    final id = await repository.addExpense(
       name: preset.name,
       category: preset.category,
       amount: amount,
@@ -63,6 +63,7 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
       _sessionAddedItems.insert(
         0,
         _SessionItem(
+          id: id,
           name: preset.name,
           category: preset.category,
           amount: amount,
@@ -81,7 +82,7 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
     final amount = double.parse(_amountController.text.trim());
 
     final repository = ref.read(expenseRepositoryProvider);
-    await repository.addExpense(
+    final id = await repository.addExpense(
       name: name,
       category: category,
       amount: amount,
@@ -93,6 +94,7 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
       _sessionAddedItems.insert(
         0,
         _SessionItem(
+          id: id,
           name: name,
           category: category,
           amount: amount,
@@ -104,6 +106,24 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
       _amountController.clear();
       _categoryController.text = 'General';
     });
+  }
+
+  Future<void> _removeSessionItem(_SessionItem item) async {
+    final repository = ref.read(expenseRepositoryProvider);
+    await repository.deleteExpense(item.id);
+
+    setState(() {
+      _sessionAddedItems.removeWhere((i) => i.id == item.id);
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Removed "${item.name}"'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   void _showPresetAmountOverrideDialog(Preset preset) {
@@ -157,8 +177,9 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
 
   @override
   Widget build(BuildContext context) {
-    final presetsAsync = ref.watch(presetsStreamProvider);
+    final presetsAsync = ref.watch(presetsByTypeStreamProvider(_type));
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final isExpense = _type == 'expense';
 
     return Container(
       constraints: BoxConstraints(
@@ -234,21 +255,21 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                // Section: Regular Presets
+                // Section: Presets
                 Row(
                   children: [
                     Text(
-                      _type == 'expense' ? 'PRESETS (TAP TO ADD)' : 'INCOME PRESETS',
-                      style: const TextStyle(
+                      isExpense ? 'EXPENSE PRESETS (TAP TO ADD)' : 'INCOME PRESETS (TAP TO ADD)',
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.5,
-                        color: AppTheme.textSecondary,
+                        color: isExpense ? AppTheme.expenseColor : AppTheme.incomeColor,
                       ),
                     ),
                     const Spacer(),
                     const Text(
-                      'Long-press to edit amount',
+                      'Long-press to adjust amount',
                       style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
                     ),
                   ],
@@ -265,9 +286,11 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: AppTheme.border),
                         ),
-                        child: const Text(
-                          'No presets configured yet. Use "Other" below or add presets from the top menu.',
-                          style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                        child: Text(
+                          isExpense
+                              ? 'No expense presets configured yet. Use manual entry below.'
+                              : 'No income presets configured yet. Use manual entry below.',
+                          style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
                         ),
                       );
                     }
@@ -283,8 +306,14 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                             decoration: BoxDecoration(
-                              color: AppTheme.accentLight.withValues(alpha: 0.4),
-                              border: Border.all(color: AppTheme.primaryAccent.withValues(alpha: 0.3)),
+                              color: isExpense
+                                  ? AppTheme.accentLight.withValues(alpha: 0.4)
+                                  : AppTheme.incomeColor.withValues(alpha: 0.1),
+                              border: Border.all(
+                                color: isExpense
+                                    ? AppTheme.primaryAccent.withValues(alpha: 0.3)
+                                    : AppTheme.incomeColor.withValues(alpha: 0.3),
+                              ),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Row(
@@ -303,16 +332,20 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
                                     ),
                                     Text(
                                       _currencyFormat.format(preset.defaultAmount),
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontWeight: FontWeight.w700,
                                         fontSize: 13,
-                                        color: AppTheme.primaryAccent,
+                                        color: isExpense ? AppTheme.primaryAccent : AppTheme.incomeColor,
                                       ),
                                     ),
                                   ],
                                 ),
                                 const SizedBox(width: 8),
-                                const Icon(Icons.add_circle_outline, size: 18, color: AppTheme.primaryAccent),
+                                Icon(
+                                  Icons.add_circle_outline,
+                                  size: 18,
+                                  color: isExpense ? AppTheme.primaryAccent : AppTheme.incomeColor,
+                                ),
                               ],
                             ),
                           ),
@@ -350,9 +383,9 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
                             flex: 2,
                             child: TextFormField(
                               controller: _nameController,
-                              decoration: const InputDecoration(
+                              decoration: InputDecoration(
                                 labelText: 'Name',
-                                hintText: 'e.g. Parking',
+                                hintText: isExpense ? 'e.g. Parking' : 'e.g. Consulting',
                               ),
                               validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
                             ),
@@ -383,9 +416,9 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
                           Expanded(
                             child: TextFormField(
                               controller: _categoryController,
-                              decoration: const InputDecoration(
+                              decoration: InputDecoration(
                                 labelText: 'Category',
-                                hintText: 'e.g. Transport, Salary',
+                                hintText: isExpense ? 'e.g. Transport' : 'e.g. Salary, Gift',
                               ),
                               validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
                             ),
@@ -408,7 +441,7 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
 
                 const SizedBox(height: 20),
 
-                // Running Session Summary ("Added Today")
+                // Running Session Summary ("Added in this Session")
                 if (_sessionAddedItems.isNotEmpty) ...[
                   const Divider(height: 1, color: AppTheme.border),
                   const SizedBox(height: 12),
@@ -447,28 +480,47 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
                       separatorBuilder: (_, __) => const Divider(height: 1, color: AppTheme.border),
                       itemBuilder: (context, index) {
                         final item = _sessionAddedItems[index];
-                        final isExpense = item.type == 'expense';
+                        final itemIsExpense = item.type == 'expense';
                         return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           child: Row(
                             children: [
-                              Text(
-                                item.name,
-                                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                '(${item.category})',
-                                style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        item.name,
+                                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        '(${item.category})',
+                                        style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                                      ),
+                                    ],
+                                  ),
+                                  Text(
+                                    item.time,
+                                    style: const TextStyle(color: AppTheme.textSecondary, fontSize: 11),
+                                  ),
+                                ],
                               ),
                               const Spacer(),
                               Text(
-                                '${isExpense ? "-" : "+"}${_currencyFormat.format(item.amount)}',
+                                '${itemIsExpense ? "-" : "+"}${_currencyFormat.format(item.amount)}',
                                 style: TextStyle(
                                   fontWeight: FontWeight.w700,
                                   fontSize: 13,
-                                  color: isExpense ? AppTheme.expenseColor : AppTheme.incomeColor,
+                                  color: itemIsExpense ? AppTheme.expenseColor : AppTheme.incomeColor,
                                 ),
+                              ),
+                              const SizedBox(width: 4),
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.expenseColor),
+                                tooltip: 'Remove from session',
+                                onPressed: () => _removeSessionItem(item),
                               ),
                             ],
                           ),
@@ -526,6 +578,7 @@ class _TypeTab extends StatelessWidget {
 }
 
 class _SessionItem {
+  final int id;
   final String name;
   final String category;
   final double amount;
@@ -533,6 +586,7 @@ class _SessionItem {
   final String time;
 
   _SessionItem({
+    required this.id,
     required this.name,
     required this.category,
     required this.amount,

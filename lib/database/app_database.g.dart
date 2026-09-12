@@ -52,8 +52,24 @@ class $PresetsTable extends Presets with TableInfo<$PresetsTable, Preset> {
     type: DriftSqlType.double,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _typeMeta = const VerificationMeta('type');
   @override
-  List<GeneratedColumn> get $columns => [id, name, category, defaultAmount];
+  late final GeneratedColumn<String> type = GeneratedColumn<String>(
+    'type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('expense'),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    category,
+    defaultAmount,
+    type,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -96,6 +112,12 @@ class $PresetsTable extends Presets with TableInfo<$PresetsTable, Preset> {
     } else if (isInserting) {
       context.missing(_defaultAmountMeta);
     }
+    if (data.containsKey('type')) {
+      context.handle(
+        _typeMeta,
+        type.isAcceptableOrUnknown(data['type']!, _typeMeta),
+      );
+    }
     return context;
   }
 
@@ -121,6 +143,10 @@ class $PresetsTable extends Presets with TableInfo<$PresetsTable, Preset> {
         DriftSqlType.double,
         data['${effectivePrefix}default_amount'],
       )!,
+      type: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}type'],
+      )!,
     );
   }
 
@@ -135,11 +161,13 @@ class Preset extends DataClass implements Insertable<Preset> {
   final String name;
   final String category;
   final double defaultAmount;
+  final String type;
   const Preset({
     required this.id,
     required this.name,
     required this.category,
     required this.defaultAmount,
+    required this.type,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -148,6 +176,7 @@ class Preset extends DataClass implements Insertable<Preset> {
     map['name'] = Variable<String>(name);
     map['category'] = Variable<String>(category);
     map['default_amount'] = Variable<double>(defaultAmount);
+    map['type'] = Variable<String>(type);
     return map;
   }
 
@@ -157,6 +186,7 @@ class Preset extends DataClass implements Insertable<Preset> {
       name: Value(name),
       category: Value(category),
       defaultAmount: Value(defaultAmount),
+      type: Value(type),
     );
   }
 
@@ -170,6 +200,7 @@ class Preset extends DataClass implements Insertable<Preset> {
       name: serializer.fromJson<String>(json['name']),
       category: serializer.fromJson<String>(json['category']),
       defaultAmount: serializer.fromJson<double>(json['defaultAmount']),
+      type: serializer.fromJson<String>(json['type']),
     );
   }
   @override
@@ -180,6 +211,7 @@ class Preset extends DataClass implements Insertable<Preset> {
       'name': serializer.toJson<String>(name),
       'category': serializer.toJson<String>(category),
       'defaultAmount': serializer.toJson<double>(defaultAmount),
+      'type': serializer.toJson<String>(type),
     };
   }
 
@@ -188,11 +220,13 @@ class Preset extends DataClass implements Insertable<Preset> {
     String? name,
     String? category,
     double? defaultAmount,
+    String? type,
   }) => Preset(
     id: id ?? this.id,
     name: name ?? this.name,
     category: category ?? this.category,
     defaultAmount: defaultAmount ?? this.defaultAmount,
+    type: type ?? this.type,
   );
   Preset copyWithCompanion(PresetsCompanion data) {
     return Preset(
@@ -202,6 +236,7 @@ class Preset extends DataClass implements Insertable<Preset> {
       defaultAmount: data.defaultAmount.present
           ? data.defaultAmount.value
           : this.defaultAmount,
+      type: data.type.present ? data.type.value : this.type,
     );
   }
 
@@ -211,13 +246,14 @@ class Preset extends DataClass implements Insertable<Preset> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('category: $category, ')
-          ..write('defaultAmount: $defaultAmount')
+          ..write('defaultAmount: $defaultAmount, ')
+          ..write('type: $type')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, category, defaultAmount);
+  int get hashCode => Object.hash(id, name, category, defaultAmount, type);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -225,7 +261,8 @@ class Preset extends DataClass implements Insertable<Preset> {
           other.id == this.id &&
           other.name == this.name &&
           other.category == this.category &&
-          other.defaultAmount == this.defaultAmount);
+          other.defaultAmount == this.defaultAmount &&
+          other.type == this.type);
 }
 
 class PresetsCompanion extends UpdateCompanion<Preset> {
@@ -233,17 +270,20 @@ class PresetsCompanion extends UpdateCompanion<Preset> {
   final Value<String> name;
   final Value<String> category;
   final Value<double> defaultAmount;
+  final Value<String> type;
   const PresetsCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.category = const Value.absent(),
     this.defaultAmount = const Value.absent(),
+    this.type = const Value.absent(),
   });
   PresetsCompanion.insert({
     this.id = const Value.absent(),
     required String name,
     required String category,
     required double defaultAmount,
+    this.type = const Value.absent(),
   }) : name = Value(name),
        category = Value(category),
        defaultAmount = Value(defaultAmount);
@@ -252,12 +292,14 @@ class PresetsCompanion extends UpdateCompanion<Preset> {
     Expression<String>? name,
     Expression<String>? category,
     Expression<double>? defaultAmount,
+    Expression<String>? type,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (name != null) 'name': name,
       if (category != null) 'category': category,
       if (defaultAmount != null) 'default_amount': defaultAmount,
+      if (type != null) 'type': type,
     });
   }
 
@@ -266,12 +308,14 @@ class PresetsCompanion extends UpdateCompanion<Preset> {
     Value<String>? name,
     Value<String>? category,
     Value<double>? defaultAmount,
+    Value<String>? type,
   }) {
     return PresetsCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
       category: category ?? this.category,
       defaultAmount: defaultAmount ?? this.defaultAmount,
+      type: type ?? this.type,
     );
   }
 
@@ -290,6 +334,9 @@ class PresetsCompanion extends UpdateCompanion<Preset> {
     if (defaultAmount.present) {
       map['default_amount'] = Variable<double>(defaultAmount.value);
     }
+    if (type.present) {
+      map['type'] = Variable<String>(type.value);
+    }
     return map;
   }
 
@@ -299,7 +346,8 @@ class PresetsCompanion extends UpdateCompanion<Preset> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('category: $category, ')
-          ..write('defaultAmount: $defaultAmount')
+          ..write('defaultAmount: $defaultAmount, ')
+          ..write('type: $type')
           ..write(')'))
         .toString();
   }
@@ -1219,12 +1267,14 @@ typedef $$PresetsTableCreateCompanionBuilder = PresetsCompanion Function({
   required String name,
   required String category,
   required double defaultAmount,
+  Value<String> type,
 });
 typedef $$PresetsTableUpdateCompanionBuilder = PresetsCompanion Function({
   Value<int> id,
   Value<String> name,
   Value<String> category,
   Value<double> defaultAmount,
+  Value<String> type,
 });
 
 class $$PresetsTableFilterComposer
@@ -1253,6 +1303,11 @@ class $$PresetsTableFilterComposer
 
   ColumnFilters<double> get defaultAmount => $composableBuilder(
     column: $table.defaultAmount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get type => $composableBuilder(
+    column: $table.type,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -1285,6 +1340,11 @@ class $$PresetsTableOrderingComposer
     column: $table.defaultAmount,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$PresetsTableAnnotationComposer
@@ -1309,6 +1369,9 @@ class $$PresetsTableAnnotationComposer
     column: $table.defaultAmount,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get type =>
+      $composableBuilder(column: $table.type, builder: (column) => column);
 }
 
 class $$PresetsTableTableManager
@@ -1343,11 +1406,13 @@ class $$PresetsTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<String> category = const Value.absent(),
                 Value<double> defaultAmount = const Value.absent(),
+                Value<String> type = const Value.absent(),
               }) => PresetsCompanion(
                 id: id,
                 name: name,
                 category: category,
                 defaultAmount: defaultAmount,
+                type: type,
               ),
           createCompanionCallback:
               ({
@@ -1355,11 +1420,13 @@ class $$PresetsTableTableManager
                 required String name,
                 required String category,
                 required double defaultAmount,
+                Value<String> type = const Value.absent(),
               }) => PresetsCompanion.insert(
                 id: id,
                 name: name,
                 category: category,
                 defaultAmount: defaultAmount,
+                type: type,
               ),
           withReferenceMapper: (p0) => p0
               .map(

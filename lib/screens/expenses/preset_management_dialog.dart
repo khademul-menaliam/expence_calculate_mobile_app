@@ -63,9 +63,33 @@ class PresetManagementScreen extends ConsumerWidget {
               return Card(
                 child: ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  title: Text(
-                    preset.name,
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                  title: Row(
+                    children: [
+                      Text(
+                        preset.name,
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: preset.type == 'income'
+                              ? AppTheme.incomeColor.withValues(alpha: 0.15)
+                              : AppTheme.expenseColor.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          preset.type.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: preset.type == 'income'
+                                ? AppTheme.incomeColor
+                                : AppTheme.expenseColor,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   subtitle: Text(
                     preset.category,
@@ -76,10 +100,12 @@ class PresetManagementScreen extends ConsumerWidget {
                     children: [
                       Text(
                         currencyFormatter.format(preset.defaultAmount),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 16,
-                          color: AppTheme.textPrimary,
+                          color: preset.type == 'income'
+                              ? AppTheme.incomeColor
+                              : AppTheme.textPrimary,
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -116,91 +142,119 @@ class PresetManagementScreen extends ConsumerWidget {
     final amountController = TextEditingController(
       text: preset != null ? preset.defaultAmount.toStringAsFixed(2) : '',
     );
+    String selectedType = preset?.type ?? 'expense';
     final formKey = GlobalKey<FormState>();
 
     showDialog(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
-          title: Text(preset == null ? 'New Preset' : 'Edit Preset'),
-          content: Form(
-            key: formKey,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    controller: nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Preset Name',
-                      hintText: 'e.g. Coffee, Subway',
-                    ),
-                    validator: (val) => (val == null || val.trim().isEmpty) ? 'Enter a name' : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: categoryController,
-                    decoration: const InputDecoration(
-                      labelText: 'Category',
-                      hintText: 'e.g. Food, Transport',
-                    ),
-                    validator: (val) => (val == null || val.trim().isEmpty) ? 'Enter category' : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: amountController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(
-                      labelText: 'Default Amount',
-                      prefixText: '\$ ',
-                    ),
-                    validator: (val) {
-                      if (val == null || val.trim().isEmpty) return 'Enter amount';
-                      final parsed = double.tryParse(val.trim());
-                      if (parsed == null || parsed < 0) return 'Invalid amount';
-                      return null;
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(minimumSize: const Size(80, 44)),
-              onPressed: () async {
-                if (formKey.currentState!.validate()) {
-                  final name = nameController.text.trim();
-                  final category = categoryController.text.trim();
-                  final amount = double.parse(amountController.text.trim());
-
-                  if (preset == null) {
-                    await ref.read(expenseRepositoryProvider).addPreset(
-                          name: name,
-                          category: category,
-                          defaultAmount: amount,
-                        );
-                  } else {
-                    await ref.read(expenseRepositoryProvider).updatePreset(
-                          preset.copyWith(
-                            name: name,
-                            category: category,
-                            defaultAmount: amount,
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text(preset == null ? 'New Preset' : 'Edit Preset'),
+              content: Form(
+                key: formKey,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SegmentedButton<String>(
+                        segments: const [
+                          ButtonSegment(
+                            value: 'expense',
+                            label: Text('Expense'),
+                            icon: Icon(Icons.arrow_downward, size: 16),
                           ),
-                        );
-                  }
-                  if (dialogContext.mounted) {
-                    Navigator.of(dialogContext).pop();
-                  }
-                }
-              },
-              child: const Text('Save'),
-            ),
-          ],
+                          ButtonSegment(
+                            value: 'income',
+                            label: Text('Income'),
+                            icon: Icon(Icons.arrow_upward, size: 16),
+                          ),
+                        ],
+                        selected: {selectedType},
+                        onSelectionChanged: (newSelection) {
+                          setDialogState(() {
+                            selectedType = newSelection.first;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: nameController,
+                        decoration: const InputDecoration(
+                          labelText: 'Preset Name',
+                          hintText: 'e.g. Coffee, Salary',
+                        ),
+                        validator: (val) => (val == null || val.trim().isEmpty) ? 'Enter a name' : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: categoryController,
+                        decoration: const InputDecoration(
+                          labelText: 'Category',
+                          hintText: 'e.g. Food, Salary, Transport',
+                        ),
+                        validator: (val) => (val == null || val.trim().isEmpty) ? 'Enter category' : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: amountController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(
+                          labelText: 'Default Amount',
+                          prefixText: '\$ ',
+                        ),
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) return 'Enter amount';
+                          final parsed = double.tryParse(val.trim());
+                          if (parsed == null || parsed < 0) return 'Invalid amount';
+                          return null;
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(minimumSize: const Size(80, 44)),
+                  onPressed: () async {
+                    if (formKey.currentState!.validate()) {
+                      final name = nameController.text.trim();
+                      final category = categoryController.text.trim();
+                      final amount = double.parse(amountController.text.trim());
+
+                      if (preset == null) {
+                        await ref.read(expenseRepositoryProvider).addPreset(
+                              name: name,
+                              category: category,
+                              defaultAmount: amount,
+                              type: selectedType,
+                            );
+                      } else {
+                        await ref.read(expenseRepositoryProvider).updatePreset(
+                              preset.copyWith(
+                                name: name,
+                                category: category,
+                                defaultAmount: amount,
+                                type: selectedType,
+                              ),
+                            );
+                      }
+                      if (dialogContext.mounted) {
+                        Navigator.of(dialogContext).pop();
+                      }
+                    }
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
         );
       },
     );

@@ -52,16 +52,27 @@ class ExpenseRepository {
         .watch();
   }
 
+  Stream<List<Preset>> watchPresetsByType(String type) {
+    return (db.select(db.presets)
+          ..where((t) => t.type.equals(type))
+          ..orderBy([
+            (t) => OrderingTerm(expression: t.name, mode: OrderingMode.asc)
+          ]))
+        .watch();
+  }
+
   Future<int> addPreset({
     required String name,
     required String category,
     required double defaultAmount,
+    String type = 'expense',
   }) {
     return db.into(db.presets).insert(
           PresetsCompanion.insert(
             name: name,
             category: category,
             defaultAmount: defaultAmount,
+            type: Value(type),
           ),
         );
   }

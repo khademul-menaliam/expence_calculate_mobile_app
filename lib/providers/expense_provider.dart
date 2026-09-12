@@ -20,6 +20,10 @@ final presetsStreamProvider = StreamProvider<List<Preset>>((ref) {
   return ref.watch(expenseRepositoryProvider).watchAllPresets();
 });
 
+final presetsByTypeStreamProvider = StreamProvider.family<List<Preset>, String>((ref, type) {
+  return ref.watch(expenseRepositoryProvider).watchPresetsByType(type);
+});
+
 // Helper class for computed statistics
 class ExpenseStats {
   final double todayTotal;

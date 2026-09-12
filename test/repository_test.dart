@@ -21,16 +21,19 @@ void main() {
 
   group('Expense & Preset Repository Tests', () {
     test('Add and stream presets', () async {
+      final initialPresets = await expenseRepo.watchAllPresets().first;
+      final initialCount = initialPresets.length;
+
       await expenseRepo.addPreset(
-        name: 'Coffee',
+        name: 'Custom Preset',
         category: 'Food',
         defaultAmount: 3.50,
+        type: 'expense',
       );
 
       final presets = await expenseRepo.watchAllPresets().first;
-      expect(presets.length, equals(1));
-      expect(presets.first.name, equals('Coffee'));
-      expect(presets.first.defaultAmount, equals(3.50));
+      expect(presets.length, equals(initialCount + 1));
+      expect(presets.any((p) => p.name == 'Custom Preset'), isTrue);
     });
 
     test('Add expense and verify live calculations stream', () async {

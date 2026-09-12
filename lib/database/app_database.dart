@@ -11,6 +11,7 @@ class Presets extends Table {
   TextColumn get name => text()();
   TextColumn get category => text()();
   RealColumn get defaultAmount => real()();
+  TextColumn get type => text().withDefault(const Constant('expense'))(); // 'expense' or 'income'
 }
 
 class Expenses extends Table {
@@ -40,7 +41,62 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.connection);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration {
+    return MigrationStrategy(
+      onUpgrade: (m, from, to) async {
+        if (from < 2) {
+          await m.addColumn(presets, presets.type);
+        }
+      },
+      beforeOpen: (details) async {
+        if (details.wasCreated) {
+          await into(presets).insert(
+            PresetsCompanion.insert(
+              name: 'Coffee',
+              category: 'Food & Drink',
+              defaultAmount: 4.50,
+              type: const Value('expense'),
+            ),
+          );
+          await into(presets).insert(
+            PresetsCompanion.insert(
+              name: 'Lunch',
+              category: 'Food & Drink',
+              defaultAmount: 12.00,
+              type: const Value('expense'),
+            ),
+          );
+          await into(presets).insert(
+            PresetsCompanion.insert(
+              name: 'Transport',
+              category: 'Commute',
+              defaultAmount: 3.50,
+              type: const Value('expense'),
+            ),
+          );
+          await into(presets).insert(
+            PresetsCompanion.insert(
+              name: 'Salary',
+              category: 'Income',
+              defaultAmount: 2500.00,
+              type: const Value('income'),
+            ),
+          );
+          await into(presets).insert(
+            PresetsCompanion.insert(
+              name: 'Freelance',
+              category: 'Income',
+              defaultAmount: 300.00,
+              type: const Value('income'),
+            ),
+          );
+        }
+      },
+    );
+  }
 }
 
 LazyDatabase _openConnection() {
