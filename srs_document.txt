@@ -1,0 +1,158 @@
+================================================================================
+SOFTWARE REQUIREMENTS SPECIFICATION (SRS)
+Project Name: Expense & Financial Goals Tracker Mobile Application
+Version: 1.0.0
+Date: September 12, 2026
+Source: Implemented Source Code Base Analysis (Flutter / Drift / Riverpod)
+================================================================================
+
+1. INTRODUCTION & SYSTEM OVERVIEW
+--------------------------------------------------------------------------------
+This document specifies the Software Requirements Specification (SRS) based strictly
+on the features and functionality currently implemented in the mobile application 
+codebase.
+
+The application is a cross-platform mobile app built using Flutter for tracking daily
+personal finances (expenses and income) and managing short/long-term financial goals.
+It runs completely offline using a local SQLite database powered by Drift ORM, featuring
+reactive state management via Flutter Riverpod and persistent preferences via 
+SharedPreferences.
+
+--------------------------------------------------------------------------------
+2. SYSTEM ARCHITECTURE & TECHNICAL STACK
+--------------------------------------------------------------------------------
+- Framework: Flutter SDK (Dart ^3.13.3)
+- State Management: Flutter Riverpod (^2.5.1)
+- Persistence Layer: Drift ORM (^2.16.0) with native SQLite (`sqlite3_flutter_libs`)
+- Storage Provider: `path_provider` (storing `db.sqlite` in App Documents directory)
+- Key-Value Storage: `shared_preferences` (^2.5.5) for application preferences
+- Formatting & Localization: `intl` (^0.19.0) for currency formatting and date formatting
+- Design System: Custom Light Theme (`AppTheme`) with curated color tokens and material styling
+
+--------------------------------------------------------------------------------
+3. IMPLEMENTED FUNCTIONAL REQUIREMENTS
+--------------------------------------------------------------------------------
+
+3.1 Main Navigation System
+- Implements `MainNavigationScreen` with a bottom navigation bar containing 2 primary tabs:
+  1. Daily Expenses Tab (Index 0)
+  2. Financial Goals Tab (Index 1)
+- Maintains navigation state and smooth switching between expense tracking and goal management.
+
+3.2 Multi-Currency Management System
+- Default Currency: US Dollar (USD, `$`).
+- Supports 8 built-in currencies:
+  1. USD - US Dollar ($)
+  2. EUR - Euro (€)
+  3. GBP - British Pound (£)
+  4. BDT - Bangladeshi Taka (৳)
+  5. CAD - Canadian Dollar (CA$)
+  6. AUD - Australian Dollar (A$)
+  7. JPY - Japanese Yen (¥)
+  8. INR - Indian Rupee (₹)
+- Features `CurrencySelectorDialog` with live text search filtering by currency code or name.
+- Saves the user's active currency selection in `SharedPreferences` (`selected_currency_code`).
+- Dynamically updates all monetary displays across the application via `currencyProvider`.
+
+3.3 Daily Expense & Income Management Module
+- View Net Balance Matrix:
+  - Net Balance = Total Income - Total Expense (Styled green if >= 0, red if negative).
+  - Summary metrics breakdown: Today's Expense, This Week's Expense, This Month's Expense.
+- Interactive Category Breakdown Chips:
+  - Displays spent totals grouped by category (e.g., `Food & Drink CA$ 10.00`).
+  - Interactive tap filtering: Tapping a category chip filters transaction history list; tapping again clears filter.
+- Chronologically Grouped Transactions List:
+  - Grouped by date headers (`Today`, `Yesterday`, or `MMM d, yyyy`).
+  - Styled transaction items: Income items display green positive amounts (`+CA$ 215.00`); Expense items display dark text negative amounts (`-CA$ 10.00`).
+  - Displays category badges next to item descriptions.
+- Swipe-to-Delete with Undo Capability:
+  - Swipe transaction right-to-left or left-to-right to delete.
+  - Displays custom floating overlay `AppToast` with animated slide/fade entry and 2.5-second auto-dismissal.
+  - Provides an instant "UNDO" button on toast notification to restore deleted record with original ID, category, date, and type.
+- Edit Expense / Income Dialog (`EditExpenseDialog`):
+  - Allows editing transaction Name, Category (with quick category chips), Amount, Type (`Expense` vs `Income`), and Date.
+
+3.4 Quick Add & Batch Session Module (`QuickAddPopup`)
+- Accessible via the Floating Action Button (`Quick Add`) on the Daily Expenses screen.
+- Preset Taps:
+  - Quick tap chips for configured Expense and Income presets to record transactions in one click.
+  - Long-press preset chip to open a one-time amount override dialog.
+- Manual Entry Form:
+  - Name, Amount input (with safe decimal comma parser), Category, and Date selector (`Today`, `Yesterday`, or Custom Date Picker).
+- Running Batch Session Log:
+  - Displays a running list of all items added during the current sheet session.
+  - Displays live session net balance.
+  - Provides instant item removal option within the session log.
+
+3.5 Preset Management Module (`PresetManagementScreen`, `PresetFormDialog`)
+- Accessible via the top-right tune icon button (`Icons.tune_outlined`) on the Daily Expenses screen.
+- Lists all user-defined presets with name, category, default amount, and type badge (`EXPENSE` / `INCOME`).
+- Create / Edit Preset Form:
+  - Inputs for Preset Name, Category, Default Amount, and Type (`Expense` or `Income`).
+- Delete Preset:
+  - Deletes preset from system with confirmation dialog without affecting previously recorded transactions.
+
+3.6 Financial Goals Management Module (`GoalsHomeScreen`)
+- Goal Metrics Summary Matrix:
+  - Displays Total Goals, Active Goals count, and Completed Goals count.
+- Goal Status Tabs:
+  - Active Goals Tab: Lists active ongoing goals.
+  - Completed Goals Tab: Lists completed goals.
+- Quick Goal Add Input & Full Add Goal Dialog (`AddGoalDialog`):
+  - Quick text bar at top to add goal name instantly.
+  - Floating Action Button (`Add Goal`) opens `AddGoalDialog` for full goal setup (Name, Target Cost, Notes, Target Date).
+- Goal Cards:
+  - Displays Goal Name, optional Target Cost (formatted in active currency), Target Date (`yyyy-MM-dd`), and Notes.
+  - Completion Checkbox: Checking marks goal completed (moves to Completed tab with timestamp); unchecking restores goal to Active tab.
+  - Edit Goal Dialog (`EditGoalDialog`): Allows updating goal details.
+  - Delete Goal: Deletes goal with confirmation dialog.
+
+3.7 Custom UI System & Toast Notification Engine (`AppToast`)
+- Custom `OverlayEntry` floating toast widget with `AnimationController`.
+- Entry & exit slide and fade animations.
+- Guaranteed 2.5-second auto-dismissal timer bypassing system accessibility overrides.
+- Material wrapper integration on all `ListTile` and `InkWell` components for clean tap splash rendering.
+
+--------------------------------------------------------------------------------
+4. NON-FUNCTIONAL & TECHNICAL SPECIFICATIONS
+--------------------------------------------------------------------------------
+- Local Offline Storage: SQLite database managed via Drift ORM with full ACID compliance.
+- Input Robustness: Safe parsing (`double.tryParse`) with automatic decimal comma sanitization (`.replaceAll(',', '.')`) preventing UI thread freezes across all input fields.
+- Navigation & Hero Safety: Explicit, unique `heroTag` properties assigned to all `FloatingActionButton` instances (`expense_home_fab`, `preset_management_fab`, `goals_home_fab`) preventing subtree hero collision assertions.
+- Responsive Layout: Overflow protection implemented via flexible `Wrap` layouts and custom scroll views (`CustomScrollView`, `SliverList`).
+- Quality Assurance: 100% test pass rate across widget and repository unit tests with zero static linter warnings (`flutter analyze`).
+
+--------------------------------------------------------------------------------
+5. DATABASE SCHEMA (DRIFT ENTITIES)
+--------------------------------------------------------------------------------
+
+5.1 `Expenses` Table:
+  - `id`: Integer (Primary Key, Auto Increment)
+  - `name`: Text (Transaction description)
+  - `category`: Text (Default: 'General')
+  - `amount`: Real (Monetary value)
+  - `type`: Text ('expense' or 'income', Default: 'expense')
+  - `date`: DateTime (Transaction date)
+  - `createdAt`: DateTime (Timestamp of creation)
+
+5.2 `Presets` Table:
+  - `id`: Integer (Primary Key, Auto Increment)
+  - `name`: Text (Preset name)
+  - `category`: Text (Default: 'General')
+  - `defaultAmount`: Real (Default amount)
+  - `type`: Text ('expense' or 'income', Default: 'expense')
+  - `createdAt`: DateTime (Timestamp of creation)
+
+5.3 `Goals` Table:
+  - `id`: Integer (Primary Key, Auto Increment)
+  - `name`: Text (Goal name)
+  - `targetCost`: Real (Optional target financial target)
+  - `note`: Text (Optional note/description)
+  - `targetDate`: DateTime (Optional target completion date)
+  - `isCompleted`: Boolean (Completion status, Default: false)
+  - `createdAt`: DateTime (Timestamp of creation)
+  - `completedAt`: DateTime (Optional timestamp of completion)
+
+================================================================================
+END OF SPECIFICATION DOCUMENT
+================================================================================
