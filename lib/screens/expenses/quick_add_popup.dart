@@ -5,6 +5,7 @@ import '../../database/app_database.dart';
 import '../../providers/currency_provider.dart';
 import '../../providers/expense_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../services/notification_service.dart';
 
 class QuickAddPopup extends ConsumerStatefulWidget {
   const QuickAddPopup({super.key});
@@ -65,7 +66,92 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
     super.dispose();
   }
 
+  Future<bool> _checkLimitAlert(double amount) async {
+    if (_type != 'expense') return false;
+
+    final stats = ref.read(expenseStatsProvider);
+    final currency = ref.read(currencyProvider);
+    final now = DateTime.now();
+    final isToday = _selectedDate.year == now.year &&
+        _selectedDate.month == now.month &&
+        _selectedDate.day == now.day;
+
+    final projectedMonthly = stats.monthTotal + amount;
+    final projectedDaily = isToday ? stats.todayTotal + amount : amount;
+
+    final monthlyExceeded = projectedMonthly > stats.monthlyTarget;
+    final dailyExceeded = isToday && projectedDaily > stats.dailyTarget;
+
+    if (monthlyExceeded || dailyExceeded) {
+      final diffMonthly = projectedMonthly - stats.monthlyTarget;
+      final diffDaily = projectedDaily - stats.dailyTarget;
+
+      String message = '';
+      if (monthlyExceeded && dailyExceeded) {
+        message = 'This exceeds your monthly target by ${currency.format(diffMonthly)} and daily target by ${currency.format(diffDaily)}.';
+      } else if (monthlyExceeded) {
+        message = 'This exceeds your monthly target by ${currency.format(diffMonthly)}.';
+      } else {
+        message = 'This exceeds your daily target by ${currency.format(diffDaily)}.';
+      }
+
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: AppTheme.expenseColor),
+              SizedBox(width: 8),
+              Text('Limit Warning', style: TextStyle(fontSize: 18)),
+            ],
+          ),
+          content: Text('$message\n\nDo you want to add this expense anyway?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('CANCEL'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.expenseColor),
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('ADD ANYWAY', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      );
+
+      if (confirm == true) {
+        NotificationService().showBudgetExceededNotification(
+          title: 'Target Limit Exceeded',
+          body: message,
+        );
+        return true; // isOverLimit = true
+      } else {
+        return false; // user cancelled addition
+      }
+    }
+    return false; // Not over limit
+  }
+
   Future<void> _addPresetEntry(Preset preset, double amount) async {
+    final stats = ref.read(expenseStatsProvider);
+    final isToday = _selectedDate.year == DateTime.now().year &&
+        _selectedDate.month == DateTime.now().month &&
+        _selectedDate.day == DateTime.now().day;
+    final projectedMonthly = stats.monthTotal + amount;
+    final projectedDaily = isToday ? stats.todayTotal + amount : amount;
+    final wouldExceed = _type == 'expense' &&
+        (projectedMonthly > stats.monthlyTarget || (isToday && projectedDaily > stats.dailyTarget));
+
+    bool isOverLimit = false;
+    if (wouldExceed) {
+      final confirmed = await _checkLimitAlert(amount);
+      if (!confirmed && (projectedMonthly > stats.monthlyTarget || (isToday && projectedDaily > stats.dailyTarget))) {
+        return; // User cancelled adding
+      }
+      isOverLimit = true;
+    }
+
     final repository = ref.read(expenseRepositoryProvider);
     final id = await repository.addExpense(
       name: preset.name,
@@ -73,6 +159,7 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
       amount: amount,
       type: _type,
       date: _selectedDate,
+      isOverLimit: isOverLimit,
     );
 
     setState(() {
@@ -98,6 +185,24 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
     final sanitizedAmount = _amountController.text.trim().replaceAll(',', '.');
     final amount = double.tryParse(sanitizedAmount) ?? 0.0;
 
+    final stats = ref.read(expenseStatsProvider);
+    final isToday = _selectedDate.year == DateTime.now().year &&
+        _selectedDate.month == DateTime.now().month &&
+        _selectedDate.day == DateTime.now().day;
+    final projectedMonthly = stats.monthTotal + amount;
+    final projectedDaily = isToday ? stats.todayTotal + amount : amount;
+    final wouldExceed = _type == 'expense' &&
+        (projectedMonthly > stats.monthlyTarget || (isToday && projectedDaily > stats.dailyTarget));
+
+    bool isOverLimit = false;
+    if (wouldExceed) {
+      final confirmed = await _checkLimitAlert(amount);
+      if (!confirmed && (projectedMonthly > stats.monthlyTarget || (isToday && projectedDaily > stats.dailyTarget))) {
+        return; // User cancelled adding
+      }
+      isOverLimit = true;
+    }
+
     final repository = ref.read(expenseRepositoryProvider);
     final id = await repository.addExpense(
       name: name,
@@ -105,6 +210,7 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
       amount: amount,
       type: _type,
       date: _selectedDate,
+      isOverLimit: isOverLimit,
     );
 
     setState(() {
@@ -124,6 +230,7 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
       _categoryController.text = 'General';
     });
   }
+
 
   Future<void> _removeSessionItem(_SessionItem item) async {
     final repository = ref.read(expenseRepositoryProvider);
@@ -213,7 +320,6 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         children: [
           // Drag handle
           const SizedBox(height: 10),
@@ -359,7 +465,13 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
 
                 presetsAsync.when(
                   data: (presets) {
-                    if (presets.isEmpty) {
+                    // Exclude pinned Monthly Salary from Quick Add presets
+                    final availablePresets = presets.where((p) {
+                      final name = p.name.trim().toLowerCase();
+                      return name != 'salary' && name != 'monthly salary';
+                    }).toList();
+
+                    if (availablePresets.isEmpty) {
                       return Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
@@ -379,7 +491,7 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
                     return Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: presets.map((preset) {
+                      children: availablePresets.map((preset) {
                         return Material(
                           color: Colors.transparent,
                           borderRadius: BorderRadius.circular(10),
@@ -504,7 +616,7 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
                               controller: _categoryController,
                               decoration: InputDecoration(
                                 labelText: 'Category',
-                                hintText: isExpense ? 'e.g. Transport' : 'e.g. Salary, Gift',
+                                hintText: isExpense ? 'e.g. Transport' : 'e.g. Freelance, Gift',
                               ),
                               validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
                             ),

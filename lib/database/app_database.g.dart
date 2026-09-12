@@ -418,6 +418,34 @@ class $ExpensesTable extends Expenses with TableInfo<$ExpensesTable, Expense> {
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _isOverLimitMeta = const VerificationMeta(
+    'isOverLimit',
+  );
+  @override
+  late final GeneratedColumn<bool> isOverLimit = GeneratedColumn<bool>(
+    'is_over_limit',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_over_limit" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _isPaidMeta = const VerificationMeta('isPaid');
+  @override
+  late final GeneratedColumn<bool> isPaid = GeneratedColumn<bool>(
+    'is_paid',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_paid" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -426,6 +454,8 @@ class $ExpensesTable extends Expenses with TableInfo<$ExpensesTable, Expense> {
     amount,
     type,
     date,
+    isOverLimit,
+    isPaid,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -482,6 +512,21 @@ class $ExpensesTable extends Expenses with TableInfo<$ExpensesTable, Expense> {
     } else if (isInserting) {
       context.missing(_dateMeta);
     }
+    if (data.containsKey('is_over_limit')) {
+      context.handle(
+        _isOverLimitMeta,
+        isOverLimit.isAcceptableOrUnknown(
+          data['is_over_limit']!,
+          _isOverLimitMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_paid')) {
+      context.handle(
+        _isPaidMeta,
+        isPaid.isAcceptableOrUnknown(data['is_paid']!, _isPaidMeta),
+      );
+    }
     return context;
   }
 
@@ -515,6 +560,14 @@ class $ExpensesTable extends Expenses with TableInfo<$ExpensesTable, Expense> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}date'],
       )!,
+      isOverLimit: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_over_limit'],
+      )!,
+      isPaid: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_paid'],
+      )!,
     );
   }
 
@@ -531,6 +584,8 @@ class Expense extends DataClass implements Insertable<Expense> {
   final double amount;
   final String type;
   final DateTime date;
+  final bool isOverLimit;
+  final bool isPaid;
   const Expense({
     required this.id,
     required this.name,
@@ -538,6 +593,8 @@ class Expense extends DataClass implements Insertable<Expense> {
     required this.amount,
     required this.type,
     required this.date,
+    required this.isOverLimit,
+    required this.isPaid,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -548,6 +605,8 @@ class Expense extends DataClass implements Insertable<Expense> {
     map['amount'] = Variable<double>(amount);
     map['type'] = Variable<String>(type);
     map['date'] = Variable<DateTime>(date);
+    map['is_over_limit'] = Variable<bool>(isOverLimit);
+    map['is_paid'] = Variable<bool>(isPaid);
     return map;
   }
 
@@ -559,6 +618,8 @@ class Expense extends DataClass implements Insertable<Expense> {
       amount: Value(amount),
       type: Value(type),
       date: Value(date),
+      isOverLimit: Value(isOverLimit),
+      isPaid: Value(isPaid),
     );
   }
 
@@ -574,6 +635,8 @@ class Expense extends DataClass implements Insertable<Expense> {
       amount: serializer.fromJson<double>(json['amount']),
       type: serializer.fromJson<String>(json['type']),
       date: serializer.fromJson<DateTime>(json['date']),
+      isOverLimit: serializer.fromJson<bool>(json['isOverLimit']),
+      isPaid: serializer.fromJson<bool>(json['isPaid']),
     );
   }
   @override
@@ -586,6 +649,8 @@ class Expense extends DataClass implements Insertable<Expense> {
       'amount': serializer.toJson<double>(amount),
       'type': serializer.toJson<String>(type),
       'date': serializer.toJson<DateTime>(date),
+      'isOverLimit': serializer.toJson<bool>(isOverLimit),
+      'isPaid': serializer.toJson<bool>(isPaid),
     };
   }
 
@@ -596,6 +661,8 @@ class Expense extends DataClass implements Insertable<Expense> {
     double? amount,
     String? type,
     DateTime? date,
+    bool? isOverLimit,
+    bool? isPaid,
   }) => Expense(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -603,6 +670,8 @@ class Expense extends DataClass implements Insertable<Expense> {
     amount: amount ?? this.amount,
     type: type ?? this.type,
     date: date ?? this.date,
+    isOverLimit: isOverLimit ?? this.isOverLimit,
+    isPaid: isPaid ?? this.isPaid,
   );
   Expense copyWithCompanion(ExpensesCompanion data) {
     return Expense(
@@ -612,6 +681,10 @@ class Expense extends DataClass implements Insertable<Expense> {
       amount: data.amount.present ? data.amount.value : this.amount,
       type: data.type.present ? data.type.value : this.type,
       date: data.date.present ? data.date.value : this.date,
+      isOverLimit: data.isOverLimit.present
+          ? data.isOverLimit.value
+          : this.isOverLimit,
+      isPaid: data.isPaid.present ? data.isPaid.value : this.isPaid,
     );
   }
 
@@ -623,13 +696,16 @@ class Expense extends DataClass implements Insertable<Expense> {
           ..write('category: $category, ')
           ..write('amount: $amount, ')
           ..write('type: $type, ')
-          ..write('date: $date')
+          ..write('date: $date, ')
+          ..write('isOverLimit: $isOverLimit, ')
+          ..write('isPaid: $isPaid')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, category, amount, type, date);
+  int get hashCode =>
+      Object.hash(id, name, category, amount, type, date, isOverLimit, isPaid);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -639,7 +715,9 @@ class Expense extends DataClass implements Insertable<Expense> {
           other.category == this.category &&
           other.amount == this.amount &&
           other.type == this.type &&
-          other.date == this.date);
+          other.date == this.date &&
+          other.isOverLimit == this.isOverLimit &&
+          other.isPaid == this.isPaid);
 }
 
 class ExpensesCompanion extends UpdateCompanion<Expense> {
@@ -649,6 +727,8 @@ class ExpensesCompanion extends UpdateCompanion<Expense> {
   final Value<double> amount;
   final Value<String> type;
   final Value<DateTime> date;
+  final Value<bool> isOverLimit;
+  final Value<bool> isPaid;
   const ExpensesCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -656,6 +736,8 @@ class ExpensesCompanion extends UpdateCompanion<Expense> {
     this.amount = const Value.absent(),
     this.type = const Value.absent(),
     this.date = const Value.absent(),
+    this.isOverLimit = const Value.absent(),
+    this.isPaid = const Value.absent(),
   });
   ExpensesCompanion.insert({
     this.id = const Value.absent(),
@@ -664,6 +746,8 @@ class ExpensesCompanion extends UpdateCompanion<Expense> {
     required double amount,
     required String type,
     required DateTime date,
+    this.isOverLimit = const Value.absent(),
+    this.isPaid = const Value.absent(),
   }) : name = Value(name),
        category = Value(category),
        amount = Value(amount),
@@ -676,6 +760,8 @@ class ExpensesCompanion extends UpdateCompanion<Expense> {
     Expression<double>? amount,
     Expression<String>? type,
     Expression<DateTime>? date,
+    Expression<bool>? isOverLimit,
+    Expression<bool>? isPaid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -684,6 +770,8 @@ class ExpensesCompanion extends UpdateCompanion<Expense> {
       if (amount != null) 'amount': amount,
       if (type != null) 'type': type,
       if (date != null) 'date': date,
+      if (isOverLimit != null) 'is_over_limit': isOverLimit,
+      if (isPaid != null) 'is_paid': isPaid,
     });
   }
 
@@ -694,6 +782,8 @@ class ExpensesCompanion extends UpdateCompanion<Expense> {
     Value<double>? amount,
     Value<String>? type,
     Value<DateTime>? date,
+    Value<bool>? isOverLimit,
+    Value<bool>? isPaid,
   }) {
     return ExpensesCompanion(
       id: id ?? this.id,
@@ -702,6 +792,8 @@ class ExpensesCompanion extends UpdateCompanion<Expense> {
       amount: amount ?? this.amount,
       type: type ?? this.type,
       date: date ?? this.date,
+      isOverLimit: isOverLimit ?? this.isOverLimit,
+      isPaid: isPaid ?? this.isPaid,
     );
   }
 
@@ -726,6 +818,12 @@ class ExpensesCompanion extends UpdateCompanion<Expense> {
     if (date.present) {
       map['date'] = Variable<DateTime>(date.value);
     }
+    if (isOverLimit.present) {
+      map['is_over_limit'] = Variable<bool>(isOverLimit.value);
+    }
+    if (isPaid.present) {
+      map['is_paid'] = Variable<bool>(isPaid.value);
+    }
     return map;
   }
 
@@ -737,7 +835,9 @@ class ExpensesCompanion extends UpdateCompanion<Expense> {
           ..write('category: $category, ')
           ..write('amount: $amount, ')
           ..write('type: $type, ')
-          ..write('date: $date')
+          ..write('date: $date, ')
+          ..write('isOverLimit: $isOverLimit, ')
+          ..write('isPaid: $isPaid')
           ..write(')'))
         .toString();
   }
@@ -1466,6 +1566,8 @@ typedef $$ExpensesTableCreateCompanionBuilder = ExpensesCompanion Function({
   required double amount,
   required String type,
   required DateTime date,
+  Value<bool> isOverLimit,
+  Value<bool> isPaid,
 });
 typedef $$ExpensesTableUpdateCompanionBuilder = ExpensesCompanion Function({
   Value<int> id,
@@ -1474,6 +1576,8 @@ typedef $$ExpensesTableUpdateCompanionBuilder = ExpensesCompanion Function({
   Value<double> amount,
   Value<String> type,
   Value<DateTime> date,
+  Value<bool> isOverLimit,
+  Value<bool> isPaid,
 });
 
 class $$ExpensesTableFilterComposer
@@ -1512,6 +1616,16 @@ class $$ExpensesTableFilterComposer
 
   ColumnFilters<DateTime> get date => $composableBuilder(
     column: $table.date,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isOverLimit => $composableBuilder(
+    column: $table.isOverLimit,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isPaid => $composableBuilder(
+    column: $table.isPaid,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -1554,6 +1668,16 @@ class $$ExpensesTableOrderingComposer
     column: $table.date,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get isOverLimit => $composableBuilder(
+    column: $table.isOverLimit,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isPaid => $composableBuilder(
+    column: $table.isPaid,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ExpensesTableAnnotationComposer
@@ -1582,6 +1706,14 @@ class $$ExpensesTableAnnotationComposer
 
   GeneratedColumn<DateTime> get date =>
       $composableBuilder(column: $table.date, builder: (column) => column);
+
+  GeneratedColumn<bool> get isOverLimit => $composableBuilder(
+    column: $table.isOverLimit,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isPaid =>
+      $composableBuilder(column: $table.isPaid, builder: (column) => column);
 }
 
 class $$ExpensesTableTableManager
@@ -1618,6 +1750,8 @@ class $$ExpensesTableTableManager
                 Value<double> amount = const Value.absent(),
                 Value<String> type = const Value.absent(),
                 Value<DateTime> date = const Value.absent(),
+                Value<bool> isOverLimit = const Value.absent(),
+                Value<bool> isPaid = const Value.absent(),
               }) => ExpensesCompanion(
                 id: id,
                 name: name,
@@ -1625,6 +1759,8 @@ class $$ExpensesTableTableManager
                 amount: amount,
                 type: type,
                 date: date,
+                isOverLimit: isOverLimit,
+                isPaid: isPaid,
               ),
           createCompanionCallback:
               ({
@@ -1634,6 +1770,8 @@ class $$ExpensesTableTableManager
                 required double amount,
                 required String type,
                 required DateTime date,
+                Value<bool> isOverLimit = const Value.absent(),
+                Value<bool> isPaid = const Value.absent(),
               }) => ExpensesCompanion.insert(
                 id: id,
                 name: name,
@@ -1641,6 +1779,8 @@ class $$ExpensesTableTableManager
                 amount: amount,
                 type: type,
                 date: date,
+                isOverLimit: isOverLimit,
+                isPaid: isPaid,
               ),
           withReferenceMapper: (p0) => p0
               .map(

@@ -16,12 +16,25 @@ class ExpenseRepository {
         .watch();
   }
 
+  Stream<List<Expense>> watchExpensesForMonth(DateTime monthDate) {
+    final start = DateTime(monthDate.year, monthDate.month, 1);
+    final end = DateTime(monthDate.year, monthDate.month + 1, 1).subtract(const Duration(milliseconds: 1));
+    return (db.select(db.expenses)
+          ..where((t) => t.date.isBetweenValues(start, end))
+          ..orderBy([
+            (t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc)
+          ]))
+        .watch();
+  }
+
   Future<int> addExpense({
     required String name,
     required String category,
     required double amount,
     required String type, // 'expense' or 'income'
     DateTime? date,
+    bool isOverLimit = false,
+    bool isPaid = true,
   }) {
     return db.into(db.expenses).insert(
           ExpensesCompanion.insert(
@@ -30,9 +43,44 @@ class ExpenseRepository {
             amount: amount,
             type: type,
             date: date ?? DateTime.now(),
+            isOverLimit: Value(isOverLimit),
+            isPaid: Value(isPaid),
           ),
         );
   }
+
+  Future<bool> togglePaidStatus(int id, bool isPaid) async {
+    final expense = await (db.select(db.expenses)..where((t) => t.id.equals(id))).getSingleOrNull();
+    if (expense == null) return false;
+    return db.update(db.expenses).replace(expense.copyWith(isPaid: isPaid));
+  }
+
+  Future<void> ensureMonthlySalaryPinned(double salaryAmount, DateTime now) async {
+    try {
+      final start = DateTime(now.year, now.month, 1);
+      final end = DateTime(now.year, now.month + 1, 1).subtract(const Duration(milliseconds: 1));
+      final existingSalary = await (db.select(db.expenses)
+            ..where((t) => t.date.isBetweenValues(start, end) & t.type.equals('income') & t.name.equals('Monthly Salary')))
+          .getSingleOrNull();
+
+      if (existingSalary == null) {
+        await db.into(db.expenses).insert(
+              ExpensesCompanion.insert(
+                name: 'Monthly Salary',
+                category: 'Income',
+                amount: salaryAmount,
+                type: 'income',
+                date: DateTime(now.year, now.month, 1, 9, 0),
+                isPaid: const Value(true),
+                isOverLimit: const Value(false),
+              ),
+            );
+      }
+    } catch (_) {
+      // Gracefully handle any initial database locks or schema timing gaps
+    }
+  }
+
 
   Future<bool> updateExpense(Expense expense) {
     return db.update(db.expenses).replace(expense);

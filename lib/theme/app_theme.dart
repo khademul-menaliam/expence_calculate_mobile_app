@@ -4,9 +4,12 @@ class AppTheme {
   // Single accent color for the entire application (Calm Muted Teal/Slate)
   static const Color primaryAccent = Color(0xFF0F766E); // Muted Dark Teal
   static const Color accentLight = Color(0xFFE6F4F1);
+  static const Color primaryDark = Color(0xFF0F172A);
   
   static const Color background = Color(0xFFF8FAFC);
+  static const Color scaffoldBg = Color(0xFFF8FAFC);
   static const Color cardBg = Colors.white;
+
   static const Color textPrimary = Color(0xFF0F172A);
   static const Color textSecondary = Color(0xFF64748B);
   static const Color border = Color(0xFFE2E8F0);
@@ -75,7 +78,7 @@ class AppTheme {
           backgroundColor: primaryAccent,
           foregroundColor: Colors.white,
           elevation: 0,
-          minimumSize: const Size.fromHeight(48),
+          minimumSize: const Size(0, 48),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),

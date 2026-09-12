@@ -21,6 +21,8 @@ class Expenses extends Table {
   RealColumn get amount => real()();
   TextColumn get type => text()(); // 'expense' or 'income'
   DateTimeColumn get date => dateTime()();
+  BoolColumn get isOverLimit => boolean().withDefault(const Constant(false))();
+  BoolColumn get isPaid => boolean().withDefault(const Constant(true))();
 }
 
 class Goals extends Table {
@@ -41,7 +43,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.connection);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration {
@@ -49,6 +51,10 @@ class AppDatabase extends _$AppDatabase {
       onUpgrade: (m, from, to) async {
         if (from < 2) {
           await m.addColumn(presets, presets.type);
+        }
+        if (from < 3) {
+          await m.addColumn(expenses, expenses.isOverLimit);
+          await m.addColumn(expenses, expenses.isPaid);
         }
       },
       beforeOpen: (details) async {

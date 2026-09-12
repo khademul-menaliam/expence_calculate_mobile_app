@@ -1,3 +1,7 @@
+---
+trigger: always_on
+---
+
 # Development & Architecture Rules
 
 When implementing features, refactoring, or maintaining code in this repository:

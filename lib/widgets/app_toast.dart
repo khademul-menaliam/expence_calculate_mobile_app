@@ -5,7 +5,18 @@ class AppToast {
   static OverlayEntry? _currentEntry;
   static Timer? _timer;
 
+  static void show(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   static void showUndo({
+
     required BuildContext context,
     required String message,
     required VoidCallback onUndo,
