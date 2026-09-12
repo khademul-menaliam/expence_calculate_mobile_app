@@ -6,6 +6,7 @@ import '../../providers/currency_provider.dart';
 import '../../providers/goal_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/currency_selector_dialog.dart';
+import 'add_goal_dialog.dart';
 import 'edit_goal_dialog.dart';
 
 class GoalsHomeScreen extends ConsumerStatefulWidget {
@@ -35,10 +36,22 @@ class _GoalsHomeScreenState extends ConsumerState<GoalsHomeScreen>
 
   Future<void> _addQuickGoal() async {
     final name = _quickGoalController.text.trim();
-    if (name.isEmpty) return;
+    if (name.isEmpty) {
+      AddGoalDialog.show(context);
+      return;
+    }
 
-    await ref.read(goalRepositoryProvider).addGoal(name: name);
+    FocusScope.of(context).unfocus();
     _quickGoalController.clear();
+    await ref.read(goalRepositoryProvider).addGoal(name: name);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Added goal "$name"'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   void _confirmDeleteGoal(BuildContext context, Goal goal) {
@@ -193,6 +206,11 @@ class _GoalsHomeScreenState extends ConsumerState<GoalsHomeScreen>
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => AddGoalDialog.show(context),
+        icon: const Icon(Icons.add),
+        label: const Text('Add Goal'),
+      ),
     );
   }
 }
@@ -263,73 +281,76 @@ class _GoalListTab extends ConsumerWidget {
             final goal = goals[index];
 
             return Card(
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                leading: Checkbox(
-                  value: isDoneTab,
-                  activeColor: AppTheme.primaryAccent,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                  onChanged: (_) => onToggleComplete(goal),
-                ),
-                title: Text(
-                  goal.name,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    decoration: isDoneTab ? TextDecoration.lineThrough : null,
-                    color: isDoneTab ? AppTheme.textSecondary : AppTheme.textPrimary,
+              child: Material(
+                color: Colors.transparent,
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  leading: Checkbox(
+                    value: isDoneTab,
+                    activeColor: AppTheme.primaryAccent,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                    onChanged: (_) => onToggleComplete(goal),
                   ),
-                ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (goal.note != null && goal.note!.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        goal.note!,
-                        style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                  title: Text(
+                    goal.name,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      decoration: isDoneTab ? TextDecoration.lineThrough : null,
+                      color: isDoneTab ? AppTheme.textSecondary : AppTheme.textPrimary,
+                    ),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (goal.note != null && goal.note!.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          goal.note!,
+                          style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                        ),
+                      ],
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          if (goal.targetCost != null) ...[
+                            Text(
+                              'Target: ${currency.format(goal.targetCost!)}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.primaryAccent,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                          ],
+                          if (isDoneTab && goal.completedAt != null)
+                            Text(
+                              'Done: ${DateFormat('MMM d, yyyy').format(goal.completedAt!)}',
+                              style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                            )
+                          else if (!isDoneTab && goal.targetDate != null)
+                            Text(
+                              'Target: ${DateFormat('MMM d, yyyy').format(goal.targetDate!)}',
+                              style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                            ),
+                        ],
                       ),
                     ],
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        if (goal.targetCost != null) ...[
-                          Text(
-                            'Target: ${currency.format(goal.targetCost!)}',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.primaryAccent,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                        ],
-                        if (isDoneTab && goal.completedAt != null)
-                          Text(
-                            'Done: ${DateFormat('MMM d, yyyy').format(goal.completedAt!)}',
-                            style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
-                          )
-                        else if (!isDoneTab && goal.targetDate != null)
-                          Text(
-                            'Target: ${DateFormat('MMM d, yyyy').format(goal.targetDate!)}',
-                            style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit_outlined, size: 20),
-                      onPressed: () => onEdit(goal),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline, size: 20, color: AppTheme.expenseColor),
-                      onPressed: () => onDelete(goal),
-                    ),
-                  ],
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined, size: 20),
+                        onPressed: () => onEdit(goal),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline, size: 20, color: AppTheme.expenseColor),
+                        onPressed: () => onDelete(goal),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );

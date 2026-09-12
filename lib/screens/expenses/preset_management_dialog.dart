@@ -61,84 +61,87 @@ class PresetManagementScreen extends ConsumerWidget {
             itemBuilder: (context, index) {
               final preset = presets[index];
               return Card(
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  title: Row(
-                    children: [
-                      Text(
-                        preset.name,
-                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: preset.type == 'income'
-                              ? AppTheme.incomeColor.withValues(alpha: 0.15)
-                              : AppTheme.expenseColor.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          preset.type.toUpperCase(),
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: preset.type == 'income'
-                                ? AppTheme.incomeColor
-                                : AppTheme.expenseColor,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  subtitle: Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Row(
+                child: Material(
+                  color: Colors.transparent,
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    title: Row(
                       children: [
+                        Text(
+                          preset.name,
+                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                        ),
+                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF1F5F9),
+                            color: preset.type == 'income'
+                                ? AppTheme.incomeColor.withValues(alpha: 0.15)
+                                : AppTheme.expenseColor.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: const Color(0xFFCBD5E1), width: 0.8),
                           ),
                           child: Text(
-                            preset.category,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: AppTheme.textSecondary,
-                              fontWeight: FontWeight.w600,
+                            preset.type.toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: preset.type == 'income'
+                                  ? AppTheme.incomeColor
+                                  : AppTheme.expenseColor,
                             ),
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        currency.format(preset.defaultAmount),
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
-                          color: preset.type == 'income'
-                              ? AppTheme.incomeColor
-                              : AppTheme.textPrimary,
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: const Color(0xFFCBD5E1), width: 0.8),
+                            ),
+                            child: Text(
+                              preset.category,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppTheme.textSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          currency.format(preset.defaultAmount),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                            color: preset.type == 'income'
+                                ? AppTheme.incomeColor
+                                : AppTheme.textPrimary,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        icon: const Icon(Icons.edit_outlined, size: 20),
-                        onPressed: () => _showPresetFormDialog(context, ref, preset: preset),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete_outline, size: 20, color: AppTheme.expenseColor),
-                        onPressed: () {
-                          ref.read(expenseRepositoryProvider).deletePreset(preset.id);
-                        },
-                      ),
-                    ],
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.edit_outlined, size: 20),
+                          onPressed: () => _showPresetFormDialog(context, ref, preset: preset),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, size: 20, color: AppTheme.expenseColor),
+                          onPressed: () {
+                            ref.read(expenseRepositoryProvider).deletePreset(preset.id);
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               );

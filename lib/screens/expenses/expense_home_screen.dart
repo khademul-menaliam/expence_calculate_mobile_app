@@ -283,13 +283,15 @@ class ExpenseHomeScreen extends ConsumerWidget {
                                   onDismissed: (_) {
                                     _deleteExpenseWithUndo(context, ref, expense);
                                   },
-                                  child: ListTile(
-                                    contentPadding:
-                                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                                    onTap: () => EditExpenseDialog.show(context, expense),
-                                    onLongPress: () {
-                                      _deleteExpenseWithUndo(context, ref, expense);
-                                    },
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: ListTile(
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                                      onTap: () => EditExpenseDialog.show(context, expense),
+                                      onLongPress: () {
+                                        _deleteExpenseWithUndo(context, ref, expense);
+                                      },
                                     title: Row(
                                       children: [
                                         Text(
@@ -337,8 +339,9 @@ class ExpenseHomeScreen extends ConsumerWidget {
                                       ),
                                     ),
                                   ),
-                                );
-                              },
+                                ),
+                              );
+                            },
                             ),
                           ),
                           const SizedBox(height: 8),
