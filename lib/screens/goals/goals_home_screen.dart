@@ -90,7 +90,7 @@ class _GoalsHomeScreenState extends ConsumerState<GoalsHomeScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Goals / Wishlist'),
+        title: const Text('Goals'),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8),

@@ -42,7 +42,7 @@ class _ExpenseHomeScreenState extends ConsumerState<ExpenseHomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Dashboard & Expenses'),
+        title: const Text('Dashboard'),
         actions: [
           IconButton(
             icon: const Icon(Icons.history),

@@ -7,6 +7,7 @@ import '../../providers/expense_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../services/notification_service.dart';
+import 'edit_expense_dialog.dart';
 
 class QuickAddPopup extends ConsumerStatefulWidget {
   const QuickAddPopup({super.key});
@@ -249,6 +250,46 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
           duration: const Duration(seconds: 2),
         ),
       );
+    }
+  }
+
+  Future<void> _editSessionItem(_SessionItem item) async {
+    final expense = Expense(
+      id: item.id,
+      name: item.name,
+      category: item.category,
+      amount: item.amount,
+      type: item.type,
+      date: item.date,
+      isPaid: true,
+      isOverLimit: false,
+    );
+
+    await EditExpenseDialog.show(context, expense);
+
+    if (!mounted) return;
+
+    final db = ref.read(databaseProvider);
+    final updated = await (db.select(db.expenses)..where((t) => t.id.equals(item.id))).getSingleOrNull();
+
+    if (mounted) {
+      setState(() {
+        final index = _sessionAddedItems.indexWhere((i) => i.id == item.id);
+        if (index != -1) {
+          if (updated != null) {
+            _sessionAddedItems[index] = _SessionItem(
+              id: updated.id,
+              name: updated.name,
+              category: updated.category,
+              amount: updated.amount,
+              type: updated.type,
+              date: updated.date,
+            );
+          } else {
+            _sessionAddedItems.removeAt(index);
+          }
+        }
+      });
     }
   }
 
@@ -871,6 +912,11 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
                                                     ),
                                                   ),
                                                   const SizedBox(width: 4),
+                                                  IconButton(
+                                                    icon: const Icon(Icons.edit_outlined, size: 18, color: AppTheme.primaryAccent),
+                                                    tooltip: 'Edit entry',
+                                                    onPressed: () => _editSessionItem(item),
+                                                  ),
                                                   IconButton(
                                                     icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.expenseColor),
                                                     tooltip: 'Remove from session',

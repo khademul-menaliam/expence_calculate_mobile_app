@@ -30,7 +30,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('Dashboard & Expenses'), findsOneWidget);
+    expect(find.text('Dashboard'), findsOneWidget);
     expect(find.text('MONTHLY SUMMARY'), findsOneWidget);
     expect(find.text('Dashboard'), findsOneWidget);
     expect(find.text('Goals'), findsOneWidget);
