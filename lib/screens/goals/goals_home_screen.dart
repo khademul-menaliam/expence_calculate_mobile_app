@@ -5,6 +5,7 @@ import '../../database/app_database.dart';
 import '../../providers/currency_provider.dart';
 import '../../providers/goal_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/app_toast.dart';
 import '../../widgets/currency_selector_dialog.dart';
 import 'add_goal_dialog.dart';
 import 'edit_goal_dialog.dart';
@@ -182,8 +183,16 @@ class _GoalsHomeScreenState extends ConsumerState<GoalsHomeScreen>
                   emptyTitle: 'No Active Goals',
                   emptySubtitle: 'Type a goal name above to start tracking your wishlist.',
                   isDoneTab: false,
-                  onToggleComplete: (goal) {
-                    ref.read(goalRepositoryProvider).markGoalComplete(goal.id);
+                  onToggleComplete: (goal) async {
+                    await ref.read(goalRepositoryProvider).markGoalComplete(goal.id);
+                    if (!context.mounted) return;
+                    AppToast.showUndo(
+                      context: context,
+                      message: '🎉 Goal Completed: "${goal.name}"!',
+                      onUndo: () async {
+                        await ref.read(goalRepositoryProvider).markGoalUncomplete(goal.id);
+                      },
+                    );
                   },
                   onEdit: (goal) => EditGoalDialog.show(context, goal),
                   onDelete: (goal) => _confirmDeleteGoal(context, goal),
@@ -195,8 +204,16 @@ class _GoalsHomeScreenState extends ConsumerState<GoalsHomeScreen>
                   emptyTitle: 'No Completed Goals Yet',
                   emptySubtitle: 'Mark your active goals as finished when completed!',
                   isDoneTab: true,
-                  onToggleComplete: (goal) {
-                    ref.read(goalRepositoryProvider).markGoalUncomplete(goal.id);
+                  onToggleComplete: (goal) async {
+                    await ref.read(goalRepositoryProvider).markGoalUncomplete(goal.id);
+                    if (!context.mounted) return;
+                    AppToast.showUndo(
+                      context: context,
+                      message: 'Restored "${goal.name}" to Active',
+                      onUndo: () async {
+                        await ref.read(goalRepositoryProvider).markGoalComplete(goal.id);
+                      },
+                    );
                   },
                   onEdit: (goal) => EditGoalDialog.show(context, goal),
                   onDelete: (goal) => _confirmDeleteGoal(context, goal),
@@ -281,85 +298,214 @@ class _GoalListTab extends ConsumerWidget {
           itemBuilder: (context, index) {
             final goal = goals[index];
 
-            return Card(
-              child: Material(
-                color: Colors.transparent,
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  leading: Checkbox(
-                    value: isDoneTab,
-                    activeColor: AppTheme.primaryAccent,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                    onChanged: (_) => onToggleComplete(goal),
-                  ),
-                  title: Text(
-                    goal.name,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      decoration: isDoneTab ? TextDecoration.lineThrough : null,
-                      color: isDoneTab ? AppTheme.textSecondary : AppTheme.textPrimary,
-                    ),
-                  ),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (goal.note != null && goal.note!.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          goal.note!,
-                          style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
-                        ),
-                      ],
-                      const SizedBox(height: 4),
-                      Wrap(
-                        spacing: 12,
-                        runSpacing: 4,
-                        children: [
-                          if (goal.targetCost != null)
-                            Text(
-                              'Target: ${currency.format(goal.targetCost!)}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: AppTheme.primaryAccent,
-                              ),
-                            ),
-                          if (isDoneTab && goal.completedAt != null)
-                            Text(
-                              'Done: ${DateFormat('MMM d, yyyy').format(goal.completedAt!)}',
-                              style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
-                            )
-                          else if (!isDoneTab && goal.targetDate != null)
-                            Text(
-                              'Target: ${DateFormat('MMM d, yyyy').format(goal.targetDate!)}',
-                              style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit_outlined, size: 20),
-                        onPressed: () => onEdit(goal),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete_outline, size: 20, color: AppTheme.expenseColor),
-                        onPressed: () => onDelete(goal),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+            return _AnimatedGoalCard(
+              key: ValueKey('goal_${goal.id}_$isDoneTab'),
+              goal: goal,
+              isDoneTab: isDoneTab,
+              currencySymbol: currency.symbol,
+              onToggleComplete: onToggleComplete,
+              onEdit: onEdit,
+              onDelete: onDelete,
             );
           },
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, _) => Center(child: Text('Error: $err')),
+    );
+  }
+}
+
+class _AnimatedGoalCard extends StatefulWidget {
+  final Goal goal;
+  final bool isDoneTab;
+  final String currencySymbol;
+  final Function(Goal) onToggleComplete;
+  final Function(Goal) onEdit;
+  final Function(Goal) onDelete;
+
+  const _AnimatedGoalCard({
+    super.key,
+    required this.goal,
+    required this.isDoneTab,
+    required this.currencySymbol,
+    required this.onToggleComplete,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  State<_AnimatedGoalCard> createState() => _AnimatedGoalCardState();
+}
+
+class _AnimatedGoalCardState extends State<_AnimatedGoalCard> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _opacityAnimation;
+  late Animation<Offset> _slideAnimation;
+  bool _isAnimatingComplete = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 380),
+    );
+
+    // Active tab -> fly up-right towards Completed tab.
+    // Completed tab -> fly up-left towards Active tab.
+    final targetOffset = widget.isDoneTab
+        ? const Offset(-0.25, -1.0)
+        : const Offset(0.25, -1.0);
+
+    _slideAnimation = Tween<Offset>(
+      begin: Offset.zero,
+      end: targetOffset,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInCubic));
+
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.25).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInQuad),
+    );
+    _opacityAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _AnimatedGoalCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.goal.id != oldWidget.goal.id || widget.isDoneTab != oldWidget.isDoneTab) {
+      _controller.reset();
+      _isAnimatingComplete = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleToggle() async {
+    if (_isAnimatingComplete) return;
+
+    setState(() => _isAnimatingComplete = true);
+    await _controller.forward();
+
+    widget.onToggleComplete(widget.goal);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // On Active tab: turns done when user taps complete
+    // On Completed tab: turns active (un-checked) when user taps un-complete
+    final showCompletedStyle = widget.isDoneTab ? !_isAnimatingComplete : _isAnimatingComplete;
+
+    return SlideTransition(
+      position: _slideAnimation,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _scaleAnimation.value,
+            child: Opacity(
+              opacity: _opacityAnimation.value,
+              child: child,
+            ),
+          );
+        },
+        child: Card(
+          elevation: showCompletedStyle ? 0 : 2,
+          child: Material(
+            color: Colors.transparent,
+            child: ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              leading: InkWell(
+                onTap: _handleToggle,
+                borderRadius: BorderRadius.circular(20),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: showCompletedStyle ? AppTheme.incomeColor : Colors.transparent,
+                    border: Border.all(
+                      color: showCompletedStyle ? AppTheme.incomeColor : AppTheme.textSecondary,
+                      width: 2,
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.check,
+                    size: 16,
+                    color: showCompletedStyle ? Colors.white : Colors.transparent,
+                  ),
+                ),
+              ),
+              title: Text(
+                widget.goal.name,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  decoration: showCompletedStyle ? TextDecoration.lineThrough : null,
+                  color: showCompletedStyle ? AppTheme.textSecondary : AppTheme.textPrimary,
+                ),
+              ),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (widget.goal.note != null && widget.goal.note!.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      widget.goal.note!,
+                      style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                    ),
+                  ],
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 4,
+                    children: [
+                      if (widget.goal.targetCost != null)
+                        Text(
+                          'Target: ${widget.currencySymbol}${widget.goal.targetCost!.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.primaryAccent,
+                          ),
+                        ),
+                      if (widget.isDoneTab && widget.goal.completedAt != null)
+                        Text(
+                          'Done: ${DateFormat('MMM d, yyyy').format(widget.goal.completedAt!)}',
+                          style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                        )
+                      else if (!widget.isDoneTab && widget.goal.targetDate != null)
+                        Text(
+                          'Target: ${DateFormat('MMM d, yyyy').format(widget.goal.targetDate!)}',
+                          style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, size: 20),
+                    onPressed: () => widget.onEdit(widget.goal),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, size: 20, color: AppTheme.expenseColor),
+                    onPressed: () => widget.onDelete(widget.goal),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

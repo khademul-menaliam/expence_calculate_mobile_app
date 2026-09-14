@@ -227,7 +227,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 child: OutlinedButton.icon(
                   onPressed: _logout,
                   icon: const Icon(Icons.logout, color: AppTheme.expenseColor),
-                  label: const Text('LOGOUT / LOCK APP', style: TextStyle(color: AppTheme.expenseColor, fontWeight: FontWeight.bold)),
+                  label: const Text('LOGOUT', style: TextStyle(color: AppTheme.expenseColor, fontWeight: FontWeight.bold)),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: AppTheme.expenseColor),
                     padding: const EdgeInsets.symmetric(vertical: 16),
