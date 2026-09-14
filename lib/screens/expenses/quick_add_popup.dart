@@ -465,11 +465,8 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
 
                 presetsAsync.when(
                   data: (presets) {
-                    // Exclude pinned Monthly Salary from Quick Add presets
-                    final availablePresets = presets.where((p) {
-                      final name = p.name.trim().toLowerCase();
-                      return name != 'salary' && name != 'monthly salary';
-                    }).toList();
+                    // Include all configured presets in Quick Add
+                    final availablePresets = presets.toList();
 
                     if (availablePresets.isEmpty) {
                       return Container(

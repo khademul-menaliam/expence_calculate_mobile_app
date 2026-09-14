@@ -62,6 +62,33 @@ class $PresetsTable extends Presets with TableInfo<$PresetsTable, Preset> {
     requiredDuringInsert: false,
     defaultValue: const Constant('expense'),
   );
+  static const VerificationMeta _isAutoAddMeta = const VerificationMeta(
+    'isAutoAdd',
+  );
+  @override
+  late final GeneratedColumn<bool> isAutoAdd = GeneratedColumn<bool>(
+    'is_auto_add',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_auto_add" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _autoAddDayMeta = const VerificationMeta(
+    'autoAddDay',
+  );
+  @override
+  late final GeneratedColumn<int> autoAddDay = GeneratedColumn<int>(
+    'auto_add_day',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -69,6 +96,8 @@ class $PresetsTable extends Presets with TableInfo<$PresetsTable, Preset> {
     category,
     defaultAmount,
     type,
+    isAutoAdd,
+    autoAddDay,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -118,6 +147,21 @@ class $PresetsTable extends Presets with TableInfo<$PresetsTable, Preset> {
         type.isAcceptableOrUnknown(data['type']!, _typeMeta),
       );
     }
+    if (data.containsKey('is_auto_add')) {
+      context.handle(
+        _isAutoAddMeta,
+        isAutoAdd.isAcceptableOrUnknown(data['is_auto_add']!, _isAutoAddMeta),
+      );
+    }
+    if (data.containsKey('auto_add_day')) {
+      context.handle(
+        _autoAddDayMeta,
+        autoAddDay.isAcceptableOrUnknown(
+          data['auto_add_day']!,
+          _autoAddDayMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -147,6 +191,14 @@ class $PresetsTable extends Presets with TableInfo<$PresetsTable, Preset> {
         DriftSqlType.string,
         data['${effectivePrefix}type'],
       )!,
+      isAutoAdd: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_auto_add'],
+      )!,
+      autoAddDay: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}auto_add_day'],
+      )!,
     );
   }
 
@@ -162,12 +214,16 @@ class Preset extends DataClass implements Insertable<Preset> {
   final String category;
   final double defaultAmount;
   final String type;
+  final bool isAutoAdd;
+  final int autoAddDay;
   const Preset({
     required this.id,
     required this.name,
     required this.category,
     required this.defaultAmount,
     required this.type,
+    required this.isAutoAdd,
+    required this.autoAddDay,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -177,6 +233,8 @@ class Preset extends DataClass implements Insertable<Preset> {
     map['category'] = Variable<String>(category);
     map['default_amount'] = Variable<double>(defaultAmount);
     map['type'] = Variable<String>(type);
+    map['is_auto_add'] = Variable<bool>(isAutoAdd);
+    map['auto_add_day'] = Variable<int>(autoAddDay);
     return map;
   }
 
@@ -187,6 +245,8 @@ class Preset extends DataClass implements Insertable<Preset> {
       category: Value(category),
       defaultAmount: Value(defaultAmount),
       type: Value(type),
+      isAutoAdd: Value(isAutoAdd),
+      autoAddDay: Value(autoAddDay),
     );
   }
 
@@ -201,6 +261,8 @@ class Preset extends DataClass implements Insertable<Preset> {
       category: serializer.fromJson<String>(json['category']),
       defaultAmount: serializer.fromJson<double>(json['defaultAmount']),
       type: serializer.fromJson<String>(json['type']),
+      isAutoAdd: serializer.fromJson<bool>(json['isAutoAdd']),
+      autoAddDay: serializer.fromJson<int>(json['autoAddDay']),
     );
   }
   @override
@@ -212,6 +274,8 @@ class Preset extends DataClass implements Insertable<Preset> {
       'category': serializer.toJson<String>(category),
       'defaultAmount': serializer.toJson<double>(defaultAmount),
       'type': serializer.toJson<String>(type),
+      'isAutoAdd': serializer.toJson<bool>(isAutoAdd),
+      'autoAddDay': serializer.toJson<int>(autoAddDay),
     };
   }
 
@@ -221,12 +285,16 @@ class Preset extends DataClass implements Insertable<Preset> {
     String? category,
     double? defaultAmount,
     String? type,
+    bool? isAutoAdd,
+    int? autoAddDay,
   }) => Preset(
     id: id ?? this.id,
     name: name ?? this.name,
     category: category ?? this.category,
     defaultAmount: defaultAmount ?? this.defaultAmount,
     type: type ?? this.type,
+    isAutoAdd: isAutoAdd ?? this.isAutoAdd,
+    autoAddDay: autoAddDay ?? this.autoAddDay,
   );
   Preset copyWithCompanion(PresetsCompanion data) {
     return Preset(
@@ -237,6 +305,10 @@ class Preset extends DataClass implements Insertable<Preset> {
           ? data.defaultAmount.value
           : this.defaultAmount,
       type: data.type.present ? data.type.value : this.type,
+      isAutoAdd: data.isAutoAdd.present ? data.isAutoAdd.value : this.isAutoAdd,
+      autoAddDay: data.autoAddDay.present
+          ? data.autoAddDay.value
+          : this.autoAddDay,
     );
   }
 
@@ -247,13 +319,23 @@ class Preset extends DataClass implements Insertable<Preset> {
           ..write('name: $name, ')
           ..write('category: $category, ')
           ..write('defaultAmount: $defaultAmount, ')
-          ..write('type: $type')
+          ..write('type: $type, ')
+          ..write('isAutoAdd: $isAutoAdd, ')
+          ..write('autoAddDay: $autoAddDay')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, category, defaultAmount, type);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    category,
+    defaultAmount,
+    type,
+    isAutoAdd,
+    autoAddDay,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -262,7 +344,9 @@ class Preset extends DataClass implements Insertable<Preset> {
           other.name == this.name &&
           other.category == this.category &&
           other.defaultAmount == this.defaultAmount &&
-          other.type == this.type);
+          other.type == this.type &&
+          other.isAutoAdd == this.isAutoAdd &&
+          other.autoAddDay == this.autoAddDay);
 }
 
 class PresetsCompanion extends UpdateCompanion<Preset> {
@@ -271,12 +355,16 @@ class PresetsCompanion extends UpdateCompanion<Preset> {
   final Value<String> category;
   final Value<double> defaultAmount;
   final Value<String> type;
+  final Value<bool> isAutoAdd;
+  final Value<int> autoAddDay;
   const PresetsCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.category = const Value.absent(),
     this.defaultAmount = const Value.absent(),
     this.type = const Value.absent(),
+    this.isAutoAdd = const Value.absent(),
+    this.autoAddDay = const Value.absent(),
   });
   PresetsCompanion.insert({
     this.id = const Value.absent(),
@@ -284,6 +372,8 @@ class PresetsCompanion extends UpdateCompanion<Preset> {
     required String category,
     required double defaultAmount,
     this.type = const Value.absent(),
+    this.isAutoAdd = const Value.absent(),
+    this.autoAddDay = const Value.absent(),
   }) : name = Value(name),
        category = Value(category),
        defaultAmount = Value(defaultAmount);
@@ -293,6 +383,8 @@ class PresetsCompanion extends UpdateCompanion<Preset> {
     Expression<String>? category,
     Expression<double>? defaultAmount,
     Expression<String>? type,
+    Expression<bool>? isAutoAdd,
+    Expression<int>? autoAddDay,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -300,6 +392,8 @@ class PresetsCompanion extends UpdateCompanion<Preset> {
       if (category != null) 'category': category,
       if (defaultAmount != null) 'default_amount': defaultAmount,
       if (type != null) 'type': type,
+      if (isAutoAdd != null) 'is_auto_add': isAutoAdd,
+      if (autoAddDay != null) 'auto_add_day': autoAddDay,
     });
   }
 
@@ -309,6 +403,8 @@ class PresetsCompanion extends UpdateCompanion<Preset> {
     Value<String>? category,
     Value<double>? defaultAmount,
     Value<String>? type,
+    Value<bool>? isAutoAdd,
+    Value<int>? autoAddDay,
   }) {
     return PresetsCompanion(
       id: id ?? this.id,
@@ -316,6 +412,8 @@ class PresetsCompanion extends UpdateCompanion<Preset> {
       category: category ?? this.category,
       defaultAmount: defaultAmount ?? this.defaultAmount,
       type: type ?? this.type,
+      isAutoAdd: isAutoAdd ?? this.isAutoAdd,
+      autoAddDay: autoAddDay ?? this.autoAddDay,
     );
   }
 
@@ -337,6 +435,12 @@ class PresetsCompanion extends UpdateCompanion<Preset> {
     if (type.present) {
       map['type'] = Variable<String>(type.value);
     }
+    if (isAutoAdd.present) {
+      map['is_auto_add'] = Variable<bool>(isAutoAdd.value);
+    }
+    if (autoAddDay.present) {
+      map['auto_add_day'] = Variable<int>(autoAddDay.value);
+    }
     return map;
   }
 
@@ -347,7 +451,9 @@ class PresetsCompanion extends UpdateCompanion<Preset> {
           ..write('name: $name, ')
           ..write('category: $category, ')
           ..write('defaultAmount: $defaultAmount, ')
-          ..write('type: $type')
+          ..write('type: $type, ')
+          ..write('isAutoAdd: $isAutoAdd, ')
+          ..write('autoAddDay: $autoAddDay')
           ..write(')'))
         .toString();
   }
@@ -1368,6 +1474,8 @@ typedef $$PresetsTableCreateCompanionBuilder = PresetsCompanion Function({
   required String category,
   required double defaultAmount,
   Value<String> type,
+  Value<bool> isAutoAdd,
+  Value<int> autoAddDay,
 });
 typedef $$PresetsTableUpdateCompanionBuilder = PresetsCompanion Function({
   Value<int> id,
@@ -1375,6 +1483,8 @@ typedef $$PresetsTableUpdateCompanionBuilder = PresetsCompanion Function({
   Value<String> category,
   Value<double> defaultAmount,
   Value<String> type,
+  Value<bool> isAutoAdd,
+  Value<int> autoAddDay,
 });
 
 class $$PresetsTableFilterComposer
@@ -1408,6 +1518,16 @@ class $$PresetsTableFilterComposer
 
   ColumnFilters<String> get type => $composableBuilder(
     column: $table.type,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isAutoAdd => $composableBuilder(
+    column: $table.isAutoAdd,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get autoAddDay => $composableBuilder(
+    column: $table.autoAddDay,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -1445,6 +1565,16 @@ class $$PresetsTableOrderingComposer
     column: $table.type,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get isAutoAdd => $composableBuilder(
+    column: $table.isAutoAdd,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get autoAddDay => $composableBuilder(
+    column: $table.autoAddDay,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$PresetsTableAnnotationComposer
@@ -1472,6 +1602,14 @@ class $$PresetsTableAnnotationComposer
 
   GeneratedColumn<String> get type =>
       $composableBuilder(column: $table.type, builder: (column) => column);
+
+  GeneratedColumn<bool> get isAutoAdd =>
+      $composableBuilder(column: $table.isAutoAdd, builder: (column) => column);
+
+  GeneratedColumn<int> get autoAddDay => $composableBuilder(
+    column: $table.autoAddDay,
+    builder: (column) => column,
+  );
 }
 
 class $$PresetsTableTableManager
@@ -1507,12 +1645,16 @@ class $$PresetsTableTableManager
                 Value<String> category = const Value.absent(),
                 Value<double> defaultAmount = const Value.absent(),
                 Value<String> type = const Value.absent(),
+                Value<bool> isAutoAdd = const Value.absent(),
+                Value<int> autoAddDay = const Value.absent(),
               }) => PresetsCompanion(
                 id: id,
                 name: name,
                 category: category,
                 defaultAmount: defaultAmount,
                 type: type,
+                isAutoAdd: isAutoAdd,
+                autoAddDay: autoAddDay,
               ),
           createCompanionCallback:
               ({
@@ -1521,12 +1663,16 @@ class $$PresetsTableTableManager
                 required String category,
                 required double defaultAmount,
                 Value<String> type = const Value.absent(),
+                Value<bool> isAutoAdd = const Value.absent(),
+                Value<int> autoAddDay = const Value.absent(),
               }) => PresetsCompanion.insert(
                 id: id,
                 name: name,
                 category: category,
                 defaultAmount: defaultAmount,
                 type: type,
+                isAutoAdd: isAutoAdd,
+                autoAddDay: autoAddDay,
               ),
           withReferenceMapper: (p0) => p0
               .map(

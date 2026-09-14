@@ -95,7 +95,9 @@ class PresetManagementScreen extends ConsumerWidget {
                     ),
                     subtitle: Padding(
                       padding: const EdgeInsets.only(top: 4),
-                      child: Row(
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -113,6 +115,30 @@ class PresetManagementScreen extends ConsumerWidget {
                               ),
                             ),
                           ),
+                          if (preset.isAutoAdd)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryAccent.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: AppTheme.primaryAccent.withValues(alpha: 0.3)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.autorenew, size: 12, color: AppTheme.primaryAccent),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    'Auto: ${_formatDayString(preset.autoAddDay)}',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: AppTheme.primaryAccent,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -159,6 +185,16 @@ class PresetManagementScreen extends ConsumerWidget {
     );
   }
 
+  String _formatDayString(int day) {
+    if (day == 1) return '1st of month';
+    if (day == 2) return '2nd of month';
+    if (day == 3) return '3rd of month';
+    if (day >= 21 && day % 10 == 1) return '${day}st of month';
+    if (day >= 22 && day % 10 == 2) return '${day}nd of month';
+    if (day >= 23 && day % 10 == 3) return '${day}rd of month';
+    return '${day}th of month';
+  }
+
   void _showPresetFormDialog(BuildContext context, WidgetRef ref, {Preset? preset}) {
     final nameController = TextEditingController(text: preset?.name ?? '');
     final categoryController = TextEditingController(text: preset?.category ?? 'General');
@@ -166,6 +202,9 @@ class PresetManagementScreen extends ConsumerWidget {
       text: preset != null ? preset.defaultAmount.toStringAsFixed(2) : '',
     );
     String selectedType = preset?.type ?? 'expense';
+    bool isAutoAdd = preset?.isAutoAdd ?? false;
+    int autoAddDay = preset?.autoAddDay ?? 1;
+
     final formKey = GlobalKey<FormState>();
 
     showDialog(
@@ -235,6 +274,62 @@ class PresetManagementScreen extends ConsumerWidget {
                           return null;
                         },
                       ),
+                      const SizedBox(height: 16),
+                      const Divider(),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text(
+                          'Automatic Add Every Month',
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: const Text(
+                          'Auto-creates transaction on selected date of month',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                        value: isAutoAdd,
+                        activeTrackColor: AppTheme.primaryAccent,
+                        onChanged: (val) {
+                          setDialogState(() {
+                            isAutoAdd = val;
+                          });
+                        },
+                      ),
+                      if (isAutoAdd) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Text(
+                              'Auto-Add Date:',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: DropdownButtonFormField<int>(
+                                initialValue: autoAddDay,
+                                isExpanded: true,
+                                decoration: const InputDecoration(
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  border: OutlineInputBorder(),
+                                ),
+                                items: List.generate(31, (index) {
+                                  final day = index + 1;
+                                  return DropdownMenuItem<int>(
+                                    value: day,
+                                    child: Text(_formatDayString(day)),
+                                  );
+                                }),
+                                onChanged: (newDay) {
+                                  if (newDay != null) {
+                                    setDialogState(() {
+                                      autoAddDay = newDay;
+                                    });
+                                  }
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -252,24 +347,32 @@ class PresetManagementScreen extends ConsumerWidget {
                       final category = categoryController.text.trim();
                       final sanitized = amountController.text.trim().replaceAll(',', '.');
                       final amount = double.tryParse(sanitized) ?? 0.0;
+                      final repo = ref.read(expenseRepositoryProvider);
 
                       if (preset == null) {
-                        await ref.read(expenseRepositoryProvider).addPreset(
-                              name: name,
-                              category: category,
-                              defaultAmount: amount,
-                              type: selectedType,
-                            );
+                        await repo.addPreset(
+                          name: name,
+                          category: category,
+                          defaultAmount: amount,
+                          type: selectedType,
+                          isAutoAdd: isAutoAdd,
+                          autoAddDay: autoAddDay,
+                        );
                       } else {
-                        await ref.read(expenseRepositoryProvider).updatePreset(
-                              preset.copyWith(
-                                name: name,
-                                category: category,
-                                defaultAmount: amount,
-                                type: selectedType,
-                              ),
-                            );
+                        await repo.updatePreset(
+                          preset.copyWith(
+                            name: name,
+                            category: category,
+                            defaultAmount: amount,
+                            type: selectedType,
+                            isAutoAdd: isAutoAdd,
+                            autoAddDay: autoAddDay,
+                          ),
+                        );
                       }
+
+                      await repo.processAutoAddPresets(DateTime.now());
+
                       if (dialogContext.mounted) {
                         Navigator.of(dialogContext).pop();
                       }

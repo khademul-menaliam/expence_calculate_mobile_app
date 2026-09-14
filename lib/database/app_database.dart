@@ -12,6 +12,8 @@ class Presets extends Table {
   TextColumn get category => text()();
   RealColumn get defaultAmount => real()();
   TextColumn get type => text().withDefault(const Constant('expense'))(); // 'expense' or 'income'
+  BoolColumn get isAutoAdd => boolean().withDefault(const Constant(false))();
+  IntColumn get autoAddDay => integer().withDefault(const Constant(1))();
 }
 
 class Expenses extends Table {
@@ -43,7 +45,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.connection);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration {
@@ -55,6 +57,10 @@ class AppDatabase extends _$AppDatabase {
         if (from < 3) {
           await m.addColumn(expenses, expenses.isOverLimit);
           await m.addColumn(expenses, expenses.isPaid);
+        }
+        if (from < 4) {
+          await m.addColumn(presets, presets.isAutoAdd);
+          await m.addColumn(presets, presets.autoAddDay);
         }
       },
       beforeOpen: (details) async {
@@ -89,6 +95,8 @@ class AppDatabase extends _$AppDatabase {
               category: 'Income',
               defaultAmount: 2500.00,
               type: const Value('income'),
+              isAutoAdd: const Value(true),
+              autoAddDay: const Value(1),
             ),
           );
           await into(presets).insert(

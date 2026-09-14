@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/currency_provider.dart';
+import '../../providers/expense_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_toast.dart';
@@ -54,6 +55,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           monthlyTarget: monthlyTarget,
           savingsTarget: savingsTarget,
         );
+
+    if (salary != null && salary > 0) {
+      await ref.read(expenseRepositoryProvider).syncSalaryPreset(salary);
+    }
 
     if (!mounted) return;
     AppToast.show(context, 'Settings updated successfully!');

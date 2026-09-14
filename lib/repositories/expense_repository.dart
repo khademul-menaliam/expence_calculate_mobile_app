@@ -55,32 +55,77 @@ class ExpenseRepository {
     return db.update(db.expenses).replace(expense.copyWith(isPaid: isPaid));
   }
 
-  Future<void> ensureMonthlySalaryPinned(double salaryAmount, DateTime now) async {
+  Future<void> processAutoAddPresets(DateTime now) async {
     try {
-      final start = DateTime(now.year, now.month, 1);
-      final end = DateTime(now.year, now.month + 1, 1).subtract(const Duration(milliseconds: 1));
-      final existingSalary = await (db.select(db.expenses)
-            ..where((t) => t.date.isBetweenValues(start, end) & t.type.equals('income') & t.name.equals('Monthly Salary')))
-          .getSingleOrNull();
+      final autoAddPresets = await (db.select(db.presets)
+            ..where((t) => t.isAutoAdd.equals(true)))
+          .get();
 
-      if (existingSalary == null) {
-        await db.into(db.expenses).insert(
-              ExpensesCompanion.insert(
-                name: 'Monthly Salary',
-                category: 'Income',
-                amount: salaryAmount,
-                type: 'income',
-                date: DateTime(now.year, now.month, 1, 9, 0),
-                isPaid: const Value(true),
-                isOverLimit: const Value(false),
-              ),
-            );
+      final startOfMonth = DateTime(now.year, now.month, 1);
+      final endOfMonth = DateTime(now.year, now.month + 1, 1).subtract(const Duration(milliseconds: 1));
+
+      for (final preset in autoAddPresets) {
+        final targetDay = preset.autoAddDay.clamp(1, 31);
+        final lastDayInMonth = DateTime(now.year, now.month + 1, 0).day;
+        final scheduledDay = targetDay > lastDayInMonth ? lastDayInMonth : targetDay;
+
+        if (now.day >= scheduledDay) {
+          final existing = await (db.select(db.expenses)
+                ..where((t) =>
+                    t.date.isBetweenValues(startOfMonth, endOfMonth) &
+                    t.type.equals(preset.type) &
+                    t.name.equals(preset.name)))
+              .getSingleOrNull();
+
+          if (existing == null) {
+            await db.into(db.expenses).insert(
+                  ExpensesCompanion.insert(
+                    name: preset.name,
+                    category: preset.category,
+                    amount: preset.defaultAmount,
+                    type: preset.type,
+                    date: DateTime(now.year, now.month, scheduledDay, 9, 0),
+                    isPaid: const Value(true),
+                    isOverLimit: const Value(false),
+                  ),
+                );
+          }
+        }
       }
     } catch (_) {
-      // Gracefully handle any initial database locks or schema timing gaps
+      // Graceful error catch
     }
   }
 
+  Future<void> syncSalaryPreset(double salaryAmount, {int autoAddDay = 1}) async {
+    try {
+      final existingSalaryPreset = await (db.select(db.presets)
+            ..where((t) => t.type.equals('income') & (t.name.equals('Salary') | t.name.equals('Monthly Salary'))))
+          .getSingleOrNull();
+
+      if (existingSalaryPreset != null) {
+        await updatePreset(existingSalaryPreset.copyWith(
+          defaultAmount: salaryAmount,
+          isAutoAdd: true,
+          autoAddDay: autoAddDay,
+        ));
+      } else {
+        await addPreset(
+          name: 'Monthly Salary',
+          category: 'Income',
+          defaultAmount: salaryAmount,
+          type: 'income',
+          isAutoAdd: true,
+          autoAddDay: autoAddDay,
+        );
+      }
+      await processAutoAddPresets(DateTime.now());
+    } catch (_) {}
+  }
+
+  Future<void> ensureMonthlySalaryPinned(double salaryAmount, DateTime now) async {
+    await syncSalaryPreset(salaryAmount, autoAddDay: 1);
+  }
 
   Future<bool> updateExpense(Expense expense) {
     return db.update(db.expenses).replace(expense);
@@ -114,6 +159,8 @@ class ExpenseRepository {
     required String category,
     required double defaultAmount,
     String type = 'expense',
+    bool isAutoAdd = false,
+    int autoAddDay = 1,
   }) {
     return db.into(db.presets).insert(
           PresetsCompanion.insert(
@@ -121,6 +168,8 @@ class ExpenseRepository {
             category: category,
             defaultAmount: defaultAmount,
             type: Value(type),
+            isAutoAdd: Value(isAutoAdd),
+            autoAddDay: Value(autoAddDay),
           ),
         );
   }

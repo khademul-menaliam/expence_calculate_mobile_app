@@ -28,10 +28,11 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
         final profile = ref.read(profileNotifierProvider);
+        final repository = ref.read(expenseRepositoryProvider);
         if (profile.monthlySalary > 0) {
-          final repository = ref.read(expenseRepositoryProvider);
-          await repository.ensureMonthlySalaryPinned(profile.monthlySalary, DateTime.now());
+          await repository.syncSalaryPreset(profile.monthlySalary);
         }
+        await repository.processAutoAddPresets(DateTime.now());
       } catch (_) {}
     });
   }

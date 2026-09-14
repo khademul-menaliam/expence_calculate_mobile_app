@@ -4,7 +4,6 @@ import 'package:intl/intl.dart';
 import '../../database/app_database.dart';
 import '../../providers/currency_provider.dart';
 import '../../providers/expense_provider.dart';
-import '../../providers/profile_provider.dart';
 import '../../theme/app_theme.dart';
 
 import '../../widgets/app_toast.dart';
@@ -31,7 +30,6 @@ class _ExpenseHomeScreenState extends ConsumerState<ExpenseHomeScreen> {
     final stats = ref.watch(expenseStatsProvider);
     final expensesAsync = ref.watch(expensesStreamProvider);
     final currency = ref.watch(currencyProvider);
-    final repository = ref.watch(expenseRepositoryProvider);
 
 
     final usagePct = stats.usagePercentage.clamp(0.0, 100.0);
@@ -155,102 +153,6 @@ class _ExpenseHomeScreenState extends ConsumerState<ExpenseHomeScreen> {
                       ],
                     ),
                   ),
-
-                  // Pinned Salary Entry Card
-                  if (stats.pinnedSalary != null) ...[
-                    const SizedBox(height: 12),
-                    Card(
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: const BorderSide(color: AppTheme.border),
-                      ),
-                      color: AppTheme.cardBg,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        child: Row(
-                          children: [
-                            const CircleAvatar(
-                              radius: 18,
-                              backgroundColor: AppTheme.primaryAccent,
-                              child: Icon(Icons.attach_money, size: 20, color: Colors.white),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      const Text('Monthly Salary', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                                      const SizedBox(width: 6),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: AppTheme.primaryAccent.withValues(alpha: 0.15),
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                        child: const Text('PINNED', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryAccent)),
-                                      ),
-                                    ],
-                                  ),
-                                  Row(
-                                    children: [
-                                      Text(
-                                        currency.format(stats.pinnedSalary!.amount),
-                                        style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.incomeColor),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      InkWell(
-                                        onTap: () => _editMonthlySalary(context, stats.pinnedSalary!, currency.symbol),
-                                        borderRadius: BorderRadius.circular(4),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: AppTheme.primaryAccent.withValues(alpha: 0.1),
-                                            borderRadius: BorderRadius.circular(4),
-                                            border: Border.all(color: AppTheme.primaryAccent.withValues(alpha: 0.2)),
-                                          ),
-                                          child: const Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(Icons.edit_outlined, size: 12, color: AppTheme.primaryAccent),
-                                              SizedBox(width: 2),
-                                              Text('Edit', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.primaryAccent)),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Row(
-                              children: [
-                                Text(
-                                  stats.pinnedSalary!.isPaid ? 'Paid' : 'Not Paid',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: stats.pinnedSalary!.isPaid ? AppTheme.incomeColor : AppTheme.textSecondary,
-                                  ),
-                                ),
-                                Switch(
-                                  value: stats.pinnedSalary!.isPaid,
-                                  activeTrackColor: AppTheme.incomeColor,
-                                  onChanged: (val) async {
-                                    await repository.togglePaidStatus(stats.pinnedSalary!.id, val);
-                                  },
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
 
                   // Last Month Snapshot Summary Card
                   if (stats.lastMonthExpense > 0 || stats.lastMonthIncome > 0) ...[
@@ -811,86 +713,6 @@ class _ExpenseHomeScreenState extends ConsumerState<ExpenseHomeScreen> {
           _selectedCustomDate = null;
         });
       },
-    );
-  }
-
-  void _editMonthlySalary(BuildContext context, Expense salaryExpense, String currencySymbol) {
-    final controller = TextEditingController(text: salaryExpense.amount.toStringAsFixed(0));
-    bool updateFutureDefault = true;
-
-    showDialog(
-      context: context,
-      builder: (dialogCtx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.payments_outlined, color: AppTheme.primaryAccent),
-              SizedBox(width: 8),
-              Text('Edit Monthly Salary', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Salary may vary each month. Enter the salary amount for this month:',
-                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                autofocus: true,
-                decoration: InputDecoration(
-                  labelText: 'This Month\'s Salary',
-                  prefixText: '$currencySymbol ',
-                ),
-              ),
-              const SizedBox(height: 12),
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                dense: true,
-                value: updateFutureDefault,
-                title: const Text('Also update base salary for future months', style: TextStyle(fontSize: 12)),
-                onChanged: (val) => setDialogState(() => updateFutureDefault = val ?? true),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogCtx).pop(),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(80, 42),
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-              ),
-              onPressed: () async {
-                final newAmount = double.tryParse(controller.text.trim());
-                if (newAmount == null || newAmount <= 0) return;
-
-                Navigator.of(dialogCtx).pop();
-
-                // 1. Update this month's pinned salary expense in database
-                final repo = ref.read(expenseRepositoryProvider);
-                await repo.updateExpense(salaryExpense.copyWith(amount: newAmount));
-
-                // 2. If requested, update user profile base salary for future months
-                if (updateFutureDefault) {
-                  await ref.read(profileNotifierProvider.notifier).updateTargets(salary: newAmount);
-                }
-
-                if (context.mounted) {
-                  AppToast.show(context, 'Updated this month\'s salary!');
-                }
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

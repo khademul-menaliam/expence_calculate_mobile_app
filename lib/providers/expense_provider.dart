@@ -111,7 +111,7 @@ final expenseStatsProvider = Provider<ExpenseStats>((ref) {
         date.isBefore(endOfLastMonth.add(const Duration(milliseconds: 1)))) {
       if (isExpense) {
         lastMonthExpense += amount;
-      } else if (entry.isPaid) {
+      } else {
         lastMonthIncome += amount;
       }
       continue; // Focus current statistics on current month/active timeline
@@ -137,17 +137,15 @@ final expenseStatsProvider = Provider<ExpenseStats>((ref) {
       }
     } else {
       // Income entry
-      if (entry.name == 'Monthly Salary' && pinnedSalary == null) {
+      if ((entry.name == 'Monthly Salary' || entry.name == 'Salary') && pinnedSalary == null) {
         pinnedSalary = entry;
       }
 
-      if (entry.isPaid) {
-        totalIncome += amount;
+      totalIncome += amount;
 
-        if (date.isAfter(startOfToday.subtract(const Duration(milliseconds: 1))) &&
-            date.isBefore(endOfToday.add(const Duration(milliseconds: 1)))) {
-          todayIncome += amount;
-        }
+      if (date.isAfter(startOfToday.subtract(const Duration(milliseconds: 1))) &&
+          date.isBefore(endOfToday.add(const Duration(milliseconds: 1)))) {
+        todayIncome += amount;
       }
     }
   }
