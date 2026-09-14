@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../database/app_database.dart';
 import '../../providers/currency_provider.dart';
 import '../../providers/expense_provider.dart';
+import '../../providers/profile_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../services/notification_service.dart';
 
@@ -66,71 +67,91 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
     super.dispose();
   }
 
-  Future<bool> _checkLimitAlert(double amount) async {
-    if (_type != 'expense') return false;
+  Future<void> _checkPostAddLimitAlert() async {
+    if (_type != 'expense') return;
 
-    final stats = ref.read(expenseStatsProvider);
-    final currency = ref.read(currencyProvider);
+    final selectedDateStr = '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}';
+
+    // Check if limit alert is muted for this specific date
+    final prefs = ref.read(sharedPreferencesProvider);
+    final mutedDate = prefs.getString('mute_limit_alert_date');
+    if (mutedDate == selectedDateStr) {
+      return;
+    }
+
     final now = DateTime.now();
+    final stats = ref.read(expenseStatsProvider);
     final isToday = _selectedDate.year == now.year &&
         _selectedDate.month == now.month &&
         _selectedDate.day == now.day;
 
-    final projectedMonthly = stats.monthTotal + amount;
-    final projectedDaily = isToday ? stats.todayTotal + amount : amount;
+    final monthlyExceeded = stats.monthTotal > stats.monthlyTarget;
+    final dailyExceeded = isToday && stats.todayTotal > stats.dailyTarget;
 
-    final monthlyExceeded = projectedMonthly > stats.monthlyTarget;
-    final dailyExceeded = isToday && projectedDaily > stats.dailyTarget;
+    if (!monthlyExceeded && !dailyExceeded) {
+      return;
+    }
 
-    if (monthlyExceeded || dailyExceeded) {
-      final diffMonthly = projectedMonthly - stats.monthlyTarget;
-      final diffDaily = projectedDaily - stats.dailyTarget;
+    // Build notifications and messages
+    final List<String> messages = [];
+    if (dailyExceeded) {
+      messages.add('You have reached your daily target, so on next day be careful you can reduce your expense.');
+    }
+    if (monthlyExceeded) {
+      messages.add('You have reached your monthly target, so for the remaining days of this month be careful and reduce your expense.');
+    }
 
-      String message = '';
-      if (monthlyExceeded && dailyExceeded) {
-        message = 'This exceeds your monthly target by ${currency.format(diffMonthly)} and daily target by ${currency.format(diffDaily)}.';
-      } else if (monthlyExceeded) {
-        message = 'This exceeds your monthly target by ${currency.format(diffMonthly)}.';
-      } else {
-        message = 'This exceeds your daily target by ${currency.format(diffDaily)}.';
-      }
+    final fullMessage = messages.join('\n\n');
 
-      final confirm = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.warning_amber_rounded, color: AppTheme.expenseColor),
-              SizedBox(width: 8),
-              Text('Limit Warning', style: TextStyle(fontSize: 18)),
-            ],
-          ),
-          content: Text('$message\n\nDo you want to add this expense anyway?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('CANCEL'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.expenseColor),
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('ADD ANYWAY', style: TextStyle(color: Colors.white)),
-            ),
+    try {
+      NotificationService().showBudgetExceededNotification(
+        title: 'Target Limit Reached',
+        body: messages.first,
+      );
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: AppTheme.expenseColor, size: 28),
+            SizedBox(width: 8),
+            Text('Target Limit Reached', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           ],
         ),
-      );
-
-      if (confirm == true) {
-        NotificationService().showBudgetExceededNotification(
-          title: 'Target Limit Exceeded',
-          body: message,
-        );
-        return true; // isOverLimit = true
-      } else {
-        return false; // user cancelled addition
-      }
-    }
-    return false; // Not over limit
+        content: Text(
+          fullMessage,
+          style: const TextStyle(fontSize: 14, height: 1.4),
+        ),
+        actionsPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await prefs.setString('mute_limit_alert_date', selectedDateStr);
+              if (ctx.mounted) {
+                Navigator.of(ctx).pop();
+              }
+            },
+            child: const Text(
+              "Don't show this today",
+              style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.expenseColor,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Close', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _addPresetEntry(Preset preset, double amount) async {
@@ -140,17 +161,8 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
         _selectedDate.day == DateTime.now().day;
     final projectedMonthly = stats.monthTotal + amount;
     final projectedDaily = isToday ? stats.todayTotal + amount : amount;
-    final wouldExceed = _type == 'expense' &&
+    final isOverLimit = _type == 'expense' &&
         (projectedMonthly > stats.monthlyTarget || (isToday && projectedDaily > stats.dailyTarget));
-
-    bool isOverLimit = false;
-    if (wouldExceed) {
-      final confirmed = await _checkLimitAlert(amount);
-      if (!confirmed && (projectedMonthly > stats.monthlyTarget || (isToday && projectedDaily > stats.dailyTarget))) {
-        return; // User cancelled adding
-      }
-      isOverLimit = true;
-    }
 
     final repository = ref.read(expenseRepositoryProvider);
     final id = await repository.addExpense(
@@ -175,6 +187,8 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
         ),
       );
     });
+
+    await _checkPostAddLimitAlert();
   }
 
   Future<void> _addOtherEntry() async {
@@ -191,17 +205,8 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
         _selectedDate.day == DateTime.now().day;
     final projectedMonthly = stats.monthTotal + amount;
     final projectedDaily = isToday ? stats.todayTotal + amount : amount;
-    final wouldExceed = _type == 'expense' &&
+    final isOverLimit = _type == 'expense' &&
         (projectedMonthly > stats.monthlyTarget || (isToday && projectedDaily > stats.dailyTarget));
-
-    bool isOverLimit = false;
-    if (wouldExceed) {
-      final confirmed = await _checkLimitAlert(amount);
-      if (!confirmed && (projectedMonthly > stats.monthlyTarget || (isToday && projectedDaily > stats.dailyTarget))) {
-        return; // User cancelled adding
-      }
-      isOverLimit = true;
-    }
 
     final repository = ref.read(expenseRepositoryProvider);
     final id = await repository.addExpense(
@@ -229,6 +234,8 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
       _amountController.clear();
       _categoryController.text = 'General';
     });
+
+    await _checkPostAddLimitAlert();
   }
 
 
