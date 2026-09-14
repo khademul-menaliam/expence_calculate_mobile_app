@@ -22,5 +22,5 @@ samples, guidance on mobile development, and a full API reference.
 
 [⬇️ Download Expense Calculator APK](https://github.com/khademul-menaliam/expence_calculate_mobile_app/releases/download/v2.0.0/app-release.apk)
 
-**Version:** 1.0.0  
+**Version:** 2.0.0  
 **Size:** ~9.8 MB
