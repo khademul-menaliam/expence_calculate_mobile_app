@@ -38,5 +38,45 @@ void main() {
 
     await db.close();
   });
-}
 
+  testWidgets('QuickAddPopup allows multiple preset additions without Scrollbar assertion errors', (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          sharedPreferencesProvider.overrideWithValue(prefs),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: const MainNavigationScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    // Open Quick Add Popup
+    await tester.tap(find.text('Quick Add'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('EXPENSE PRESETS (TAP TO ADD)'), findsOneWidget);
+
+    // Tap Coffee preset
+    await tester.tap(find.text('Coffee'));
+    await tester.pumpAndSettle();
+
+    // Tap Lunch preset
+    await tester.tap(find.text('Lunch'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ADDED IN THIS SESSION'), findsOneWidget);
+    expect(find.text('Coffee'), findsWidgets);
+    expect(find.text('Lunch'), findsWidgets);
+
+    await db.close();
+  });
+}

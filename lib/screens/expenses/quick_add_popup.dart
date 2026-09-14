@@ -12,12 +12,14 @@ class QuickAddPopup extends ConsumerStatefulWidget {
   const QuickAddPopup({super.key});
 
   static Future<void> show(BuildContext context) {
-    return showModalBottomSheet(
+    return showDialog(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      enableDrag: true,
-      builder: (_) => const QuickAddPopup(),
+      barrierDismissible: true,
+      builder: (_) => const Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: QuickAddPopup(),
+      ),
     );
   }
 
@@ -33,6 +35,7 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
   final _nameController = TextEditingController();
   final _categoryController = TextEditingController(text: 'General');
   final _amountController = TextEditingController();
+  final _sessionScrollController = ScrollController();
   final _otherFormKey = GlobalKey<FormState>();
 
   // Running session log inside popup
@@ -64,11 +67,18 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
     _nameController.dispose();
     _categoryController.dispose();
     _amountController.dispose();
+    _sessionScrollController.dispose();
     super.dispose();
   }
 
-  Future<void> _checkPostAddLimitAlert() async {
-    if (_type != 'expense') return;
+  bool _isAdding = false;
+  _LimitNotice? _activeLimitNotice;
+
+  void _checkPostAddLimitAlert({
+    required bool dailyExceeded,
+    required bool monthlyExceeded,
+  }) {
+    if (_type != 'expense' || (!dailyExceeded && !monthlyExceeded)) return;
 
     final selectedDateStr = '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}';
 
@@ -76,19 +86,6 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
     final prefs = ref.read(sharedPreferencesProvider);
     final mutedDate = prefs.getString('mute_limit_alert_date');
     if (mutedDate == selectedDateStr) {
-      return;
-    }
-
-    final now = DateTime.now();
-    final stats = ref.read(expenseStatsProvider);
-    final isToday = _selectedDate.year == now.year &&
-        _selectedDate.month == now.month &&
-        _selectedDate.day == now.day;
-
-    final monthlyExceeded = stats.monthTotal > stats.monthlyTarget;
-    final dailyExceeded = isToday && stats.todayTotal > stats.dailyTarget;
-
-    if (!monthlyExceeded && !dailyExceeded) {
       return;
     }
 
@@ -103,139 +100,137 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
 
     final fullMessage = messages.join('\n\n');
 
-    try {
-      NotificationService().showBudgetExceededNotification(
-        title: 'Target Limit Reached',
-        body: messages.first,
-      );
-    } catch (_) {}
+    // Trigger local push notification safely in background without blocking UI thread
+    NotificationService().showBudgetExceededNotification(
+      title: 'Target Limit Reached',
+      body: messages.first,
+    ).catchError((_) {});
 
     if (!mounted) return;
 
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.warning_amber_rounded, color: AppTheme.expenseColor, size: 28),
-            SizedBox(width: 8),
-            Text('Target Limit Reached', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: Text(
-          fullMessage,
-          style: const TextStyle(fontSize: 14, height: 1.4),
-        ),
-        actionsPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              await prefs.setString('mute_limit_alert_date', selectedDateStr);
-              if (ctx.mounted) {
-                Navigator.of(ctx).pop();
-              }
-            },
-            child: const Text(
-              "Don't show this today",
-              style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.expenseColor,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Close', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
+    setState(() {
+      _activeLimitNotice = _LimitNotice(
+        message: fullMessage,
+        dateStr: selectedDateStr,
+      );
+    });
   }
 
   Future<void> _addPresetEntry(Preset preset, double amount) async {
-    final stats = ref.read(expenseStatsProvider);
-    final isToday = _selectedDate.year == DateTime.now().year &&
-        _selectedDate.month == DateTime.now().month &&
-        _selectedDate.day == DateTime.now().day;
-    final projectedMonthly = stats.monthTotal + amount;
-    final projectedDaily = isToday ? stats.todayTotal + amount : amount;
-    final isOverLimit = _type == 'expense' &&
-        (projectedMonthly > stats.monthlyTarget || (isToday && projectedDaily > stats.dailyTarget));
+    if (_isAdding) return;
+    setState(() => _isAdding = true);
 
-    final repository = ref.read(expenseRepositoryProvider);
-    final id = await repository.addExpense(
-      name: preset.name,
-      category: preset.category,
-      amount: amount,
-      type: _type,
-      date: _selectedDate,
-      isOverLimit: isOverLimit,
-    );
+    try {
+      final stats = ref.read(expenseStatsProvider);
+      final isToday = _selectedDate.year == DateTime.now().year &&
+          _selectedDate.month == DateTime.now().month &&
+          _selectedDate.day == DateTime.now().day;
+      final projectedMonthly = stats.monthTotal + amount;
+      final projectedDaily = isToday ? stats.todayTotal + amount : amount;
+      final dailyExceeded = _type == 'expense' && isToday && projectedDaily > stats.dailyTarget;
+      final monthlyExceeded = _type == 'expense' && projectedMonthly > stats.monthlyTarget;
+      final isOverLimit = dailyExceeded || monthlyExceeded;
 
-    setState(() {
-      _sessionAddedItems.insert(
-        0,
-        _SessionItem(
-          id: id,
-          name: preset.name,
-          category: preset.category,
-          amount: amount,
-          type: _type,
-          time: DateFormat.jm().format(_selectedDate),
-        ),
+      final repository = ref.read(expenseRepositoryProvider);
+      final id = await repository.addExpense(
+        name: preset.name,
+        category: preset.category,
+        amount: amount,
+        type: _type,
+        date: _selectedDate,
+        isOverLimit: isOverLimit,
       );
-    });
 
-    await _checkPostAddLimitAlert();
+      if (!mounted) return;
+
+      setState(() {
+        _sessionAddedItems.insert(
+          0,
+          _SessionItem(
+            id: id,
+            name: preset.name,
+            category: preset.category,
+            amount: amount,
+            type: _type,
+            date: _selectedDate,
+          ),
+        );
+      });
+
+      if (isOverLimit) {
+        _checkPostAddLimitAlert(
+          dailyExceeded: dailyExceeded,
+          monthlyExceeded: monthlyExceeded,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isAdding = false);
+      }
+    }
   }
 
   Future<void> _addOtherEntry() async {
+    if (_isAdding) return;
     if (!_otherFormKey.currentState!.validate()) return;
+    setState(() => _isAdding = true);
 
-    final name = _nameController.text.trim();
-    final category = _categoryController.text.trim();
-    final sanitizedAmount = _amountController.text.trim().replaceAll(',', '.');
-    final amount = double.tryParse(sanitizedAmount) ?? 0.0;
+    try {
+      final name = _nameController.text.trim();
+      final category = _categoryController.text.trim();
+      final sanitizedAmount = _amountController.text.trim().replaceAll(',', '.');
+      final amount = double.tryParse(sanitizedAmount) ?? 0.0;
 
-    final stats = ref.read(expenseStatsProvider);
-    final isToday = _selectedDate.year == DateTime.now().year &&
-        _selectedDate.month == DateTime.now().month &&
-        _selectedDate.day == DateTime.now().day;
-    final projectedMonthly = stats.monthTotal + amount;
-    final projectedDaily = isToday ? stats.todayTotal + amount : amount;
-    final isOverLimit = _type == 'expense' &&
-        (projectedMonthly > stats.monthlyTarget || (isToday && projectedDaily > stats.dailyTarget));
+      final stats = ref.read(expenseStatsProvider);
+      final isToday = _selectedDate.year == DateTime.now().year &&
+          _selectedDate.month == DateTime.now().month &&
+          _selectedDate.day == DateTime.now().day;
+      final projectedMonthly = stats.monthTotal + amount;
+      final projectedDaily = isToday ? stats.todayTotal + amount : amount;
+      final dailyExceeded = _type == 'expense' && isToday && projectedDaily > stats.dailyTarget;
+      final monthlyExceeded = _type == 'expense' && projectedMonthly > stats.monthlyTarget;
+      final isOverLimit = dailyExceeded || monthlyExceeded;
 
-    final repository = ref.read(expenseRepositoryProvider);
-    final id = await repository.addExpense(
-      name: name,
-      category: category,
-      amount: amount,
-      type: _type,
-      date: _selectedDate,
-      isOverLimit: isOverLimit,
-    );
-
-    setState(() {
-      _sessionAddedItems.insert(
-        0,
-        _SessionItem(
-          id: id,
-          name: name,
-          category: category,
-          amount: amount,
-          type: _type,
-          time: DateFormat.jm().format(_selectedDate),
-        ),
+      final repository = ref.read(expenseRepositoryProvider);
+      final id = await repository.addExpense(
+        name: name,
+        category: category,
+        amount: amount,
+        type: _type,
+        date: _selectedDate,
+        isOverLimit: isOverLimit,
       );
-      _nameController.clear();
-      _amountController.clear();
-      _categoryController.text = 'General';
-    });
 
-    await _checkPostAddLimitAlert();
+      if (!mounted) return;
+
+      setState(() {
+        _sessionAddedItems.insert(
+          0,
+          _SessionItem(
+            id: id,
+            name: name,
+            category: category,
+            amount: amount,
+            type: _type,
+            date: _selectedDate,
+          ),
+        );
+        _nameController.clear();
+        _amountController.clear();
+        _categoryController.text = 'General';
+      });
+
+      if (isOverLimit) {
+        _checkPostAddLimitAlert(
+          dailyExceeded: dailyExceeded,
+          monthlyExceeded: monthlyExceeded,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isAdding = false);
+      }
+    }
   }
 
 
@@ -314,74 +309,75 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
   Widget build(BuildContext context) {
     final presetsAsync = ref.watch(presetsByTypeStreamProvider(_type));
     final currency = ref.watch(currencyProvider);
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final isExpense = _type == 'expense';
 
     return Container(
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.88,
+        maxHeight: MediaQuery.of(context).size.height * 0.85,
       ),
-      margin: EdgeInsets.only(bottom: bottomInset),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppTheme.cardBg,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black26,
+            blurRadius: 20,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
-      child: Column(
-        children: [
-          // Drag handle
-          const SizedBox(height: 10),
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppTheme.border,
-              borderRadius: BorderRadius.circular(2),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Top Header with Title, Type Segment & Close Button
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+              color: AppTheme.cardBg,
+              child: Row(
+                children: [
+                  const Text(
+                    'Quick Add',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  // Type Selector Segmented Control
+                  Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        _TypeTab(
+                          label: 'Expense',
+                          isSelected: _type == 'expense',
+                          onTap: () => setState(() => _type = 'expense'),
+                          color: AppTheme.expenseColor,
+                        ),
+                        _TypeTab(
+                          label: 'Income',
+                          isSelected: _type == 'income',
+                          onTap: () => setState(() => _type = 'income'),
+                          color: AppTheme.incomeColor,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: AppTheme.textSecondary, size: 20),
+                    tooltip: 'Close',
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-
-          // Header with Expense / Income Toggle & Done Button
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                // Type Selector Segmented Control
-                Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      _TypeTab(
-                        label: 'Expense',
-                        isSelected: _type == 'expense',
-                        onTap: () => setState(() => _type = 'expense'),
-                        color: AppTheme.expenseColor,
-                      ),
-                      _TypeTab(
-                        label: 'Income',
-                        isSelected: _type == 'income',
-                        onTap: () => setState(() => _type = 'income'),
-                        color: AppTheme.incomeColor,
-                      ),
-                    ],
-                  ),
-                ),
-                const Spacer(),
-
-                // Explicit Done Button to close popup
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(80, 38),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                  ),
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Done', style: TextStyle(fontSize: 14)),
-                ),
-              ],
-            ),
-          ),
           const SizedBox(height: 8),
 
           // Date Selector Strip
@@ -444,11 +440,98 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
           ),
           const Divider(height: 1, color: AppTheme.border),
 
-          // Main Scrollable Area
-          Expanded(
+          // Main Scrollable Area (wrapping content dynamically)
+          Flexible(
             child: ListView(
+              shrinkWrap: true,
               padding: const EdgeInsets.all(16),
               children: [
+                if (_activeLimitNotice != null) ...[
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.expenseColor.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppTheme.expenseColor.withValues(alpha: 0.3)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.warning_amber_rounded, color: AppTheme.expenseColor, size: 20),
+                            const SizedBox(width: 6),
+                            const Text(
+                              'Target Limit Reached',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                color: AppTheme.expenseColor,
+                              ),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              icon: const Icon(Icons.close, size: 18, color: AppTheme.textSecondary),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onPressed: () {
+                                setState(() => _activeLimitNotice = null);
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          _activeLimitNotice!.message,
+                          style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary, height: 1.3),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            TextButton(
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              onPressed: () async {
+                                final dateStr = _activeLimitNotice?.dateStr;
+                                if (dateStr != null) {
+                                  final prefs = ref.read(sharedPreferencesProvider);
+                                  await prefs.setString('mute_limit_alert_date', dateStr);
+                                }
+                                if (mounted) {
+                                  setState(() => _activeLimitNotice = null);
+                                }
+                              },
+                              child: const Text(
+                                "Don't show this today",
+                                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.expenseColor,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                              ),
+                              onPressed: () {
+                                setState(() => _activeLimitNotice = null);
+                              },
+                              child: const Text('Close', style: TextStyle(color: Colors.white, fontSize: 12)),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
                 // Section: Presets
                 Row(
                   children: [
@@ -472,7 +555,6 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
 
                 presetsAsync.when(
                   data: (presets) {
-                    // Include all configured presets in Quick Add
                     final availablePresets = presets.toList();
 
                     if (availablePresets.isEmpty) {
@@ -500,8 +582,8 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
                           color: Colors.transparent,
                           borderRadius: BorderRadius.circular(10),
                           child: InkWell(
-                            onTap: () => _addPresetEntry(preset, preset.defaultAmount),
-                            onLongPress: () => _showPresetAmountOverrideDialog(preset),
+                            onTap: _isAdding ? null : () => _addPresetEntry(preset, preset.defaultAmount),
+                            onLongPress: _isAdding ? null : () => _showPresetAmountOverrideDialog(preset),
                             borderRadius: BorderRadius.circular(10),
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -631,8 +713,14 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
                               minimumSize: const Size(100, 48),
                               backgroundColor: AppTheme.cardBg,
                             ),
-                            onPressed: _addOtherEntry,
-                            icon: const Icon(Icons.add, size: 18),
+                            onPressed: _isAdding ? null : _addOtherEntry,
+                            icon: _isAdding
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.add, size: 18),
                             label: const Text('Add Entry'),
                           ),
                         ],
@@ -641,10 +729,9 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
                   ),
                 ),
 
-                const SizedBox(height: 20),
-
                 // Running Session Summary ("Added in this Session")
                 if (_sessionAddedItems.isNotEmpty) ...[
+                  const SizedBox(height: 20),
                   const Divider(height: 1, color: AppTheme.border),
                   const SizedBox(height: 12),
                   Row(
@@ -675,71 +762,134 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: AppTheme.border),
                     ),
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _sessionAddedItems.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1, color: AppTheme.border),
-                      itemBuilder: (context, index) {
-                        final item = _sessionAddedItems[index];
-                        final itemIsExpense = item.type == 'expense';
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          child: Row(
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Text(
-                                        item.name,
-                                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 220),
+                      child: Builder(
+                        builder: (context) {
+                          final groupedMap = _groupedSessionItems;
+                          final dateKeys = groupedMap.keys.toList();
+
+                          return Scrollbar(
+                            controller: _sessionScrollController,
+                            thumbVisibility: true,
+                            child: ListView.builder(
+                              controller: _sessionScrollController,
+                              shrinkWrap: true,
+                              itemCount: dateKeys.length,
+                              itemBuilder: (context, groupIndex) {
+                                final dateHeader = dateKeys[groupIndex];
+                                final items = groupedMap[dateHeader]!;
+
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Subtle Date Group Header
+                                    Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      color: const Color(0xFFF1F5F9),
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.calendar_today_outlined, size: 11, color: AppTheme.primaryAccent),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            dateHeader,
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppTheme.primaryAccent,
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                      const SizedBox(width: 6),
-                                       Container(
-                                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                                         decoration: BoxDecoration(
-                                           color: const Color(0xFFF1F5F9),
-                                           borderRadius: BorderRadius.circular(4),
-                                           border: Border.all(color: const Color(0xFFCBD5E1), width: 0.8),
-                                         ),
-                                         child: Text(
-                                           item.category,
-                                           style: const TextStyle(
-                                             color: AppTheme.textSecondary,
-                                             fontSize: 10,
-                                             fontWeight: FontWeight.w600,
-                                           ),
-                                         ),
-                                       ),
-                                    ],
-                                  ),
-                                  Text(
-                                    item.time,
-                                    style: const TextStyle(color: AppTheme.textSecondary, fontSize: 11),
-                                  ),
-                                ],
-                              ),
-                              const Spacer(),
-                              Text(
-                                '${itemIsExpense ? "-" : "+"}${currency.format(item.amount)}',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13,
-                                  color: itemIsExpense ? AppTheme.expenseColor : AppTheme.incomeColor,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.expenseColor),
-                                tooltip: 'Remove from session',
-                                onPressed: () => _removeSessionItem(item),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
+                                    ),
+
+                                    // Items inside this date group
+                                    Column(
+                                      children: List.generate(items.length, (itemIndex) {
+                                        final item = items[itemIndex];
+                                        final itemIsExpense = item.type == 'expense';
+                                        return Column(
+                                          children: [
+                                            if (itemIndex > 0) const Divider(height: 1, color: AppTheme.border),
+                                            Padding(
+                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                              child: Row(
+                                                children: [
+                                                  Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      Row(
+                                                        children: [
+                                                          Text(
+                                                            item.name,
+                                                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                                          ),
+                                                          const SizedBox(width: 6),
+                                                          Container(
+                                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                                            decoration: BoxDecoration(
+                                                              color: const Color(0xFFF1F5F9),
+                                                              borderRadius: BorderRadius.circular(4),
+                                                              border: Border.all(color: const Color(0xFFCBD5E1), width: 0.8),
+                                                            ),
+                                                            child: Text(
+                                                              item.category,
+                                                              style: const TextStyle(
+                                                                color: AppTheme.textSecondary,
+                                                                fontSize: 10,
+                                                                fontWeight: FontWeight.w600,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      const SizedBox(height: 2),
+                                                      Row(
+                                                        children: [
+                                                          const Icon(Icons.access_time, size: 11, color: AppTheme.textSecondary),
+                                                          const SizedBox(width: 3),
+                                                          Text(
+                                                            DateFormat.jm().format(item.date),
+                                                            style: const TextStyle(
+                                                              color: AppTheme.textSecondary,
+                                                              fontSize: 11,
+                                                              fontWeight: FontWeight.w500,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  const Spacer(),
+                                                  Text(
+                                                    '${itemIsExpense ? "-" : "+"}${currency.format(item.amount)}',
+                                                    style: TextStyle(
+                                                      fontWeight: FontWeight.w700,
+                                                      fontSize: 13,
+                                                      color: itemIsExpense ? AppTheme.expenseColor : AppTheme.incomeColor,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  IconButton(
+                                                    icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.expenseColor),
+                                                    tooltip: 'Remove from session',
+                                                    onPressed: () => _removeSessionItem(item),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        );
+                                      }),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ],
@@ -748,7 +898,31 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
           ),
         ],
       ),
-    );
+    ));
+  }
+
+  Map<String, List<_SessionItem>> get _groupedSessionItems {
+    final Map<String, List<_SessionItem>> grouped = {};
+    for (final item in _sessionAddedItems) {
+      final key = _sessionDateHeader(item.date);
+      grouped.putIfAbsent(key, () => []).add(item);
+    }
+    return grouped;
+  }
+
+  String _sessionDateHeader(DateTime dt) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final target = DateTime(dt.year, dt.month, dt.day);
+
+    if (target.isAtSameMomentAs(today)) {
+      return 'Today (${DateFormat('MMM d').format(dt)})';
+    } else if (target.isAtSameMomentAs(yesterday)) {
+      return 'Yesterday (${DateFormat('MMM d').format(dt)})';
+    } else {
+      return DateFormat('EEE, MMM d, yyyy').format(dt);
+    }
   }
 }
 
@@ -797,7 +971,7 @@ class _SessionItem {
   final String category;
   final double amount;
   final String type;
-  final String time;
+  final DateTime date;
 
   _SessionItem({
     required this.id,
@@ -805,6 +979,16 @@ class _SessionItem {
     required this.category,
     required this.amount,
     required this.type,
-    required this.time,
+    required this.date,
+  });
+}
+
+class _LimitNotice {
+  final String message;
+  final String dateStr;
+
+  _LimitNotice({
+    required this.message,
+    required this.dateStr,
   });
 }
