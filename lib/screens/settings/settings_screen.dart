@@ -6,6 +6,8 @@ import '../../providers/profile_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/currency_selector_dialog.dart';
+import '../../services/update_service.dart';
+import '../../services/supabase_service.dart';
 import '../auth/auth_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -220,7 +222,52 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   child: const Text('SAVE SETTINGS', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
+
+              const Text(
+                'Application & Updates',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+
+              // Check for Update Card
+              ListTile(
+                tileColor: AppTheme.cardBg,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: AppTheme.border),
+                ),
+                leading: const Icon(Icons.system_update_rounded, color: AppTheme.primaryAccent),
+                title: const Text('Check for Update', style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: const Text('Installed Version: v${UpdateService.currentVersion} • Tap to view latest release', style: TextStyle(fontSize: 12)),
+                trailing: const Icon(Icons.open_in_new, size: 18, color: AppTheme.primaryAccent),
+                onTap: () => UpdateService.showUpdateDialog(context),
+              ),
+              const SizedBox(height: 12),
+
+              // Cloud Sync Status Indicator
+              ListTile(
+                tileColor: AppTheme.cardBg,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: AppTheme.border),
+                ),
+                leading: Icon(
+                  SupabaseService().isConfigured ? Icons.cloud_done_rounded : Icons.cloud_off_rounded,
+                  color: SupabaseService().isConfigured ? AppTheme.incomeColor : AppTheme.textSecondary,
+                ),
+                title: Text(
+                  SupabaseService().isConfigured ? 'Cloud Sync Enabled' : 'Cloud Sync: Offline Mode',
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                ),
+                subtitle: Text(
+                  SupabaseService().isConfigured
+                      ? 'Connected to Supabase cloud'
+                      : 'Running locally on device. Configure Supabase keys to sync across devices.',
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+              const SizedBox(height: 24),
 
               SizedBox(
                 width: double.infinity,

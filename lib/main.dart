@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'providers/profile_provider.dart';
 import 'screens/auth/splash_screen.dart';
 import 'services/notification_service.dart';
+import 'services/supabase_service.dart';
 import 'theme/app_theme.dart';
 
 import 'package:intl/date_symbol_data_local.dart';
@@ -51,6 +52,9 @@ void main() async {
 
   // Safely pre-initialize notification plugin in background
   NotificationService().init().catchError((_) {});
+
+  // Initialize Supabase if configured (defaults smoothly to offline mode if unconfigured)
+  await SupabaseService().init();
 
   runApp(
     ProviderScope(
