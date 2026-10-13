@@ -32,12 +32,13 @@ class UpdateService {
   static Future<UpdateInfo?> checkGitHubRelease() async {
     try {
       final client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 4);
+      client.connectionTimeout = const Duration(seconds: 10);
       final request = await client.getUrl(
         Uri.parse('https://api.github.com/repos/$githubRepo/releases/latest'),
       );
       request.headers.set('User-Agent', 'Flutter-Expense-App');
-      final response = await request.close().timeout(const Duration(seconds: 4));
+      request.headers.set('Accept', 'application/vnd.github.v3+json');
+      final response = await request.close().timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final body = await response.transform(utf8.decoder).join();
@@ -54,8 +55,10 @@ class UpdateService {
           hasUpdate: hasUpdate,
         );
       }
+      debugPrint('[UpdateService] HTTP status: ${response.statusCode}');
       return null;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[UpdateService] Error checking GitHub release: $e');
       return null;
     }
   }
