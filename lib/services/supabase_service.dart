@@ -106,7 +106,7 @@ class SupabaseService {
     }
   }
 
-  /// Uploads local Drift expenses, presets, and goals to Supabase for the current user
+  /// Uploads local Drift expenses, presets, and goals to Supabase and downloads cloud records
   Future<SyncResult> syncLocalDataToCloud({
     required AppDatabase db,
     UserProfile? profile,
@@ -114,9 +114,31 @@ class SupabaseService {
     if (!isConfigured || client == null) {
       return const SyncResult(success: false, message: 'Cloud service is not connected.');
     }
-    final user = currentUser;
+
+    var user = currentUser;
+    // Auto-restore session using saved credentials if currentUser is null
+    if (user == null &&
+        profile != null &&
+        profile.userEmail.isNotEmpty &&
+        profile.userEmail != 'local_user@offline') {
+      if (profile.userPassword.isNotEmpty) {
+        try {
+          final res = await signIn(email: profile.userEmail, password: profile.userPassword);
+          user = res?.user ?? currentUser;
+        } catch (_) {
+          try {
+            final res = await signUp(email: profile.userEmail, password: profile.userPassword);
+            user = res?.user ?? currentUser;
+          } catch (_) {}
+        }
+      }
+    }
+
     if (user == null) {
-      return const SyncResult(success: false, message: 'Please log in to your cloud account to sync.');
+      return const SyncResult(
+        success: false,
+        message: 'Cloud session not active. Please sign in or register to sync.',
+      );
     }
 
     int expensesCount = 0;

@@ -98,7 +98,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       final db = ref.read(databaseProvider);
       final result = await SupabaseService().syncLocalDataToCloud(db: db, profile: profile);
       if (!mounted) return;
-      AppToast.show(context, result.message);
+      if (result.success) {
+        AppToast.show(context, result.message);
+      } else {
+        AppToast.show(context, result.message);
+        if (result.message.contains('sign in') || result.message.contains('register')) {
+          final signInNow = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Cloud Session Required'),
+              content: Text('${result.message}\n\nWould you like to sign in or register now?'),
+              actions: [
+                TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('CANCEL')),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryAccent),
+                  child: const Text('SIGN IN / REGISTER', style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            ),
+          );
+          if (signInNow == true && mounted) {
+            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AuthScreen()));
+          }
+        }
+      }
     } catch (e) {
       if (mounted) {
         AppToast.show(context, 'Sync error: $e');
