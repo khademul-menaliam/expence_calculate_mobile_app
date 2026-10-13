@@ -20,7 +20,7 @@ class UpdateInfo {
 }
 
 class UpdateService {
-  static const String currentVersion = '2.0.1';
+  static const String currentVersion = '2.0.2';
 
   // Your GitHub Repository
   static const String githubRepo = 'khademul-menaliam/expence_calculate_mobile_app';
