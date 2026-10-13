@@ -177,7 +177,13 @@ class _TransactionCalendarDialogState extends State<TransactionCalendarDialog> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            DateFormat('MMMM yyyy').format(_displayedMonth),
+                            () {
+                              try {
+                                return DateFormat('MMMM yyyy').format(_displayedMonth);
+                              } catch (_) {
+                                return '${_displayedMonth.year}-${_displayedMonth.month.toString().padLeft(2, '0')}';
+                              }
+                            }(),
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -362,7 +368,13 @@ class _TransactionCalendarDialogState extends State<TransactionCalendarDialog> {
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
-                                    DateFormat('EEEE, d MMM yyyy').format(_selectedDate),
+                                    () {
+                                      try {
+                                        return DateFormat('EEEE, d MMM yyyy').format(_selectedDate);
+                                      } catch (_) {
+                                        return '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}';
+                                      }
+                                    }(),
                                     style: const TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.bold,

@@ -477,12 +477,26 @@ class _AnimatedGoalCardState extends State<_AnimatedGoalCard> with SingleTickerP
                         ),
                       if (widget.isDoneTab && widget.goal.completedAt != null)
                         Text(
-                          'Done: ${DateFormat('MMM d, yyyy').format(widget.goal.completedAt!)}',
+                          () {
+                            try {
+                              return 'Done: ${DateFormat('MMM d, yyyy').format(widget.goal.completedAt!)}';
+                            } catch (_) {
+                              final d = widget.goal.completedAt!;
+                              return 'Done: ${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+                            }
+                          }(),
                           style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
                         )
                       else if (!widget.isDoneTab && widget.goal.targetDate != null)
                         Text(
-                          'Target: ${DateFormat('MMM d, yyyy').format(widget.goal.targetDate!)}',
+                          () {
+                            try {
+                              return 'Target: ${DateFormat('MMM d, yyyy').format(widget.goal.targetDate!)}';
+                            } catch (_) {
+                              final d = widget.goal.targetDate!;
+                              return 'Target: ${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+                            }
+                          }(),
                           style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
                         ),
                     ],

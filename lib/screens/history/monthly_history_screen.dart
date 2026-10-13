@@ -37,8 +37,13 @@ class MonthlyHistoryScreen extends ConsumerWidget {
               itemBuilder: (context, index) {
                 final key = sortedKeys[index];
                 final monthExpenses = monthlyGroups[key]!;
-                final monthDate = DateTime.parse('$key-01');
-                final monthName = DateFormat('MMMM yyyy').format(monthDate);
+                final monthDate = DateTime.tryParse('$key-01') ?? DateTime.now();
+                String monthName;
+                try {
+                  monthName = DateFormat('MMMM yyyy').format(monthDate);
+                } catch (_) {
+                  monthName = key;
+                }
 
                 double totalIncome = 0.0;
                 double totalExpense = 0.0;
@@ -81,7 +86,13 @@ class MonthlyHistoryScreen extends ConsumerWidget {
                           final isExpense = item.type == 'expense';
                           return ListTile(
                             title: Text(item.name),
-                            subtitle: Text('${item.category} • ${DateFormat('d MMM').format(item.date)}'),
+                            subtitle: Text(() {
+                              try {
+                                return '${item.category} • ${DateFormat('d MMM').format(item.date)}';
+                              } catch (_) {
+                                return '${item.category} • ${item.date.day}/${item.date.month}';
+                              }
+                            }()),
                             trailing: Text(
                               '${isExpense ? '-' : '+'}${currency.format(item.amount)}',
                               style: TextStyle(

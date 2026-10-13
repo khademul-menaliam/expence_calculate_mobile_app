@@ -54,12 +54,22 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
     final yesterday = today.subtract(const Duration(days: 1));
     final dtOnly = DateTime(dt.year, dt.month, dt.day);
 
-    if (dtOnly.isAtSameMomentAs(today)) {
-      return 'Today (${DateFormat('MMM d').format(dt)})';
-    } else if (dtOnly.isAtSameMomentAs(yesterday)) {
-      return 'Yesterday (${DateFormat('MMM d').format(dt)})';
-    } else {
-      return DateFormat('MMM d, yyyy').format(dt);
+    try {
+      if (dtOnly.isAtSameMomentAs(today)) {
+        return 'Today (${DateFormat('MMM d').format(dt)})';
+      } else if (dtOnly.isAtSameMomentAs(yesterday)) {
+        return 'Yesterday (${DateFormat('MMM d').format(dt)})';
+      } else {
+        return DateFormat('MMM d, yyyy').format(dt);
+      }
+    } catch (_) {
+      if (dtOnly.isAtSameMomentAs(today)) {
+        return 'Today (${dt.day}/${dt.month})';
+      } else if (dtOnly.isAtSameMomentAs(yesterday)) {
+        return 'Yesterday (${dt.day}/${dt.month})';
+      } else {
+        return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+      }
     }
   }
 
@@ -891,7 +901,13 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
                                                           const Icon(Icons.access_time, size: 11, color: AppTheme.textSecondary),
                                                           const SizedBox(width: 3),
                                                           Text(
-                                                            DateFormat.jm().format(item.date),
+                                                            () {
+                                                              try {
+                                                                return DateFormat.jm().format(item.date);
+                                                              } catch (_) {
+                                                                return '${item.date.hour.toString().padLeft(2, '0')}:${item.date.minute.toString().padLeft(2, '0')}';
+                                                              }
+                                                            }(),
                                                             style: const TextStyle(
                                                               color: AppTheme.textSecondary,
                                                               fontSize: 11,
@@ -962,12 +978,22 @@ class _QuickAddPopupState extends ConsumerState<QuickAddPopup> {
     final yesterday = today.subtract(const Duration(days: 1));
     final target = DateTime(dt.year, dt.month, dt.day);
 
-    if (target.isAtSameMomentAs(today)) {
-      return 'Today (${DateFormat('MMM d').format(dt)})';
-    } else if (target.isAtSameMomentAs(yesterday)) {
-      return 'Yesterday (${DateFormat('MMM d').format(dt)})';
-    } else {
-      return DateFormat('EEE, MMM d, yyyy').format(dt);
+    try {
+      if (target.isAtSameMomentAs(today)) {
+        return 'Today (${DateFormat('MMM d').format(dt)})';
+      } else if (target.isAtSameMomentAs(yesterday)) {
+        return 'Yesterday (${DateFormat('MMM d').format(dt)})';
+      } else {
+        return DateFormat('EEE, MMM d, yyyy').format(dt);
+      }
+    } catch (_) {
+      if (target.isAtSameMomentAs(today)) {
+        return 'Today (${dt.day}/${dt.month})';
+      } else if (target.isAtSameMomentAs(yesterday)) {
+        return 'Yesterday (${dt.day}/${dt.month})';
+      } else {
+        return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+      }
     }
   }
 }

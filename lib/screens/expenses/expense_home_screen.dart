@@ -25,6 +25,38 @@ class _ExpenseHomeScreenState extends ConsumerState<ExpenseHomeScreen> {
   String _dateFilter = 'all'; // 'all', 'today', 'yesterday', 'custom'
   DateTime? _selectedCustomDate;
 
+  String _formatDateHeader(DateTime date) {
+    try {
+      return DateFormat('EEEE, MMM d, yyyy').format(date);
+    } catch (_) {
+      return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    }
+  }
+
+  String _formatShortDate(DateTime date) {
+    try {
+      return DateFormat('d MMM').format(date);
+    } catch (_) {
+      return '${date.day}/${date.month}';
+    }
+  }
+
+  String _formatFullDate(DateTime date) {
+    try {
+      return DateFormat('d MMM yyyy').format(date);
+    } catch (_) {
+      return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    }
+  }
+
+  String _formatTime(DateTime date) {
+    try {
+      return DateFormat.jm().format(date);
+    } catch (_) {
+      return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final stats = ref.watch(expenseStatsProvider);
@@ -375,7 +407,7 @@ class _ExpenseHomeScreenState extends ConsumerState<ExpenseHomeScreen> {
                           ),
                           label: Text(
                             _selectedCustomDate != null && _dateFilter == 'custom'
-                                ? DateFormat('d MMM').format(_selectedCustomDate!)
+                                ? _formatShortDate(_selectedCustomDate!)
                                 : 'Pick Date',
                             style: TextStyle(
                               fontSize: 12,
@@ -441,7 +473,7 @@ class _ExpenseHomeScreenState extends ConsumerState<ExpenseHomeScreen> {
                   final d = DateTime(e.date.year, e.date.month, e.date.day);
                   return d.isAtSameMomentAs(target);
                 }).toList();
-                emptyTitle = 'No Transactions on ${DateFormat('d MMM yyyy').format(_selectedCustomDate!)}';
+                emptyTitle = 'No Transactions on ${_formatFullDate(_selectedCustomDate!)}';
               } else {
                 filteredExpenses = expenses;
                 emptyTitle = 'No Expenses Logged Yet';
@@ -586,7 +618,7 @@ class _ExpenseHomeScreenState extends ConsumerState<ExpenseHomeScreen> {
                                             ],
                                           ),
                                           subtitle: Text(
-                                            DateFormat.jm().format(expense.date),
+                                            _formatTime(expense.date),
                                             style: const TextStyle(
                                                 fontSize: 12, color: AppTheme.textSecondary),
                                           ),
@@ -681,7 +713,7 @@ class _ExpenseHomeScreenState extends ConsumerState<ExpenseHomeScreen> {
       } else if (dateOnly.isAtSameMomentAs(yesterday)) {
         label = 'Yesterday';
       } else {
-        label = DateFormat('EEEE, MMM d, yyyy').format(expense.date);
+        label = _formatDateHeader(expense.date);
       }
 
       grouped.putIfAbsent(label, () => []).add(expense);
