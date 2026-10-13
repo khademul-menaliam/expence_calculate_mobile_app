@@ -5,6 +5,7 @@ import '../providers/profile_provider.dart';
 import 'expenses/expense_home_screen.dart';
 import 'goals/goals_home_screen.dart';
 import 'settings/settings_screen.dart';
+import '../services/update_service.dart';
 
 class MainNavigationScreen extends ConsumerStatefulWidget {
   const MainNavigationScreen({super.key});
@@ -34,6 +35,11 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
         }
         await repository.processAutoAddPresets(DateTime.now());
       } catch (_) {}
+
+      // Automatically check GitHub releases for any new app version
+      if (mounted) {
+        UpdateService.checkOnStartup(context);
+      }
     });
   }
 

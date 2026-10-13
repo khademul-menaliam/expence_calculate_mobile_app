@@ -241,7 +241,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 title: const Text('Check for Update', style: TextStyle(fontWeight: FontWeight.w600)),
                 subtitle: const Text('Installed Version: v${UpdateService.currentVersion} • Tap to view latest release', style: TextStyle(fontSize: 12)),
                 trailing: const Icon(Icons.open_in_new, size: 18, color: AppTheme.primaryAccent),
-                onTap: () => UpdateService.showUpdateDialog(context),
+                onTap: () => UpdateService.checkFromSettings(context),
               ),
               const SizedBox(height: 12),
 
