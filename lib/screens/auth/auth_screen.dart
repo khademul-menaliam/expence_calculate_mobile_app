@@ -90,7 +90,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     } on AuthException catch (e) {
       _registerFailure();
       if (mounted) {
-        AppToast.show(context, e.message);
+        if (e.message.toLowerCase().contains('email not confirmed')) {
+          _showEmailNotConfirmedDialog(email);
+        } else {
+          AppToast.show(context, e.message);
+        }
       }
     } catch (e) {
       _registerFailure();
@@ -102,6 +106,80 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  void _showEmailNotConfirmedDialog(String email) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.mark_email_unread_rounded, color: AppTheme.expenseColor),
+            SizedBox(width: 8),
+            Text('Email Not Confirmed', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Supabase requires email confirmation before signing in.',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'A verification link was sent to:\n$email\n\nPlease check your email inbox and click the confirmation link to activate your account.',
+              style: const TextStyle(fontSize: 13, height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppTheme.cardBg,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.border),
+              ),
+              child: const Text(
+                'Tip: In your Supabase Dashboard ➔ Authentication ➔ Providers ➔ Email, you can toggle "Confirm email" OFF if you want instant logins without confirmation links.',
+                style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('OK'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              try {
+                await SupabaseService().client?.auth.resend(
+                      type: OtpType.signup,
+                      email: email,
+                    );
+                if (mounted) {
+                  AppToast.show(context, 'Confirmation email resent to $email');
+                }
+              } catch (e) {
+                if (mounted) {
+                  AppToast.show(context, 'Resend failed: $e');
+                }
+              }
+            },
+            icon: const Icon(Icons.send_rounded, size: 16),
+            label: const Text('Resend Email'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryAccent,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _registerFailure() {
