@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../database/app_database.dart';
+import 'package:drift/drift.dart' as drift;
 import '../repositories/profile_repository.dart';
 
 class SyncResult {
@@ -264,12 +265,55 @@ class SupabaseService {
         }
       }
 
-      final totalSynced = expensesCount + presetsCount + goalsCount;
+      // 5. Download missing cloud expenses into local SQLite (multi-device merge)
+      int downloadedExpenses = 0;
+      final allCloudExpenses = await client!
+          .from('expenses')
+          .select()
+          .eq('user_id', user.id);
+
+      final localKeys = localExpenses
+          .map((e) => '${e.name}_${e.date.toIso8601String()}_${e.amount}')
+          .toSet();
+
+      for (final row in allCloudExpenses) {
+        final name = row['name'] as String? ?? 'Expense';
+        final dateStr = row['date'] as String?;
+        final date = dateStr != null ? DateTime.tryParse(dateStr) ?? DateTime.now() : DateTime.now();
+        final amount = (row['amount'] as num?)?.toDouble() ?? 0.0;
+        final key = '${name}_${date.toIso8601String()}_$amount';
+        if (!localKeys.contains(key)) {
+          await db.into(db.expenses).insert(
+            ExpensesCompanion.insert(
+              name: name,
+              category: row['category'] as String? ?? 'General',
+              amount: amount,
+              type: row['type'] as String? ?? 'expense',
+              date: date,
+              isOverLimit: drift.Value(row['is_over_limit'] as bool? ?? false),
+              isPaid: drift.Value(row['is_paid'] as bool? ?? true),
+            ),
+          );
+          localKeys.add(key);
+          downloadedExpenses++;
+        }
+      }
+
+      final totalUploaded = expensesCount + presetsCount + goalsCount;
+      String summaryMsg;
+      if (totalUploaded > 0 && downloadedExpenses > 0) {
+        summaryMsg = 'Synced! Uploaded $totalUploaded items & downloaded $downloadedExpenses cloud expenses.';
+      } else if (totalUploaded > 0) {
+        summaryMsg = 'Uploaded $expensesCount expenses, $presetsCount presets, $goalsCount goals to cloud!';
+      } else if (downloadedExpenses > 0) {
+        summaryMsg = 'Downloaded $downloadedExpenses cloud expenses to this device!';
+      } else {
+        summaryMsg = 'All data is synchronized and up to date with cloud.';
+      }
+
       return SyncResult(
         success: true,
-        message: totalSynced > 0
-            ? 'Uploaded $expensesCount expenses, $presetsCount presets, $goalsCount goals to cloud!'
-            : 'All local data is already backed up to cloud.',
+        message: summaryMsg,
         expensesCount: expensesCount,
         presetsCount: presetsCount,
         goalsCount: goalsCount,
