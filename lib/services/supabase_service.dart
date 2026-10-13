@@ -19,7 +19,18 @@ class SupabaseService {
       supabaseAnonKey.isNotEmpty &&
       !supabaseUrl.contains('YOUR_SUPABASE');
 
-  SupabaseClient? get client => _initialized ? Supabase.instance.client : null;
+  SupabaseClient? get client {
+    if (_initialized) {
+      return Supabase.instance.client;
+    }
+    try {
+      final c = Supabase.instance.client;
+      _initialized = true;
+      return c;
+    } catch (_) {
+      return null;
+    }
+  }
 
   User? get currentUser => client?.auth.currentUser;
 
@@ -40,7 +51,11 @@ class SupabaseService {
       _initialized = true;
       debugPrint('[SupabaseService] Supabase successfully initialized.');
     } catch (e) {
-      debugPrint('[SupabaseService] Initialization failed: $e');
+      debugPrint('[SupabaseService] Initialization note: $e');
+      try {
+        Supabase.instance.client;
+        _initialized = true;
+      } catch (_) {}
     }
   }
 

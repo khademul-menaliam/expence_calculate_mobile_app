@@ -1,4 +1,5 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/supabase_service.dart';
 
 class UserProfile {
   final bool isLoggedIn;
@@ -77,17 +78,67 @@ class ProfileRepository {
     );
   }
 
+  bool _isNetworkError(dynamic error) {
+    final str = error.toString().toLowerCase();
+    return str.contains('socketexception') ||
+        str.contains('failed host lookup') ||
+        str.contains('network') ||
+        str.contains('clientexception') ||
+        str.contains('connection refused') ||
+        str.contains('connection timed out') ||
+        str.contains('handshakeexception');
+  }
+
   Future<void> registerUser(String email, String password) async {
+    final supabase = SupabaseService();
+    if (supabase.isConfigured && email != 'local_user@offline') {
+      try {
+        await supabase.signUp(email: email, password: password);
+      } catch (e) {
+        if (_isNetworkError(e)) {
+          // Graceful fallback: when device is offline, allow local account creation
+        } else {
+          // Re-throw AuthException / validation failures so user sees the message
+          rethrow;
+        }
+      }
+    }
+
     await prefs.setString(_keyUserEmail, email);
     await prefs.setString(_keyUserPassword, password);
     await prefs.setBool(_keyIsLoggedIn, true);
   }
 
   Future<bool> loginUser(String email, String password) async {
+    final supabase = SupabaseService();
+    if (supabase.isConfigured && email != 'local_user@offline') {
+      try {
+        final res = await supabase.signIn(email: email, password: password);
+        if (res != null && res.user != null) {
+          await prefs.setString(_keyUserEmail, email);
+          await prefs.setString(_keyUserPassword, password);
+          await prefs.setBool(_keyIsLoggedIn, true);
+          return true;
+        }
+      } catch (e) {
+        if (_isNetworkError(e)) {
+          // Device is offline: check cached credentials for offline access
+          final savedEmail = prefs.getString(_keyUserEmail) ?? '';
+          final savedPassword = prefs.getString(_keyUserPassword) ?? '';
+          if (savedEmail == email && savedPassword == password) {
+            await prefs.setBool(_keyIsLoggedIn, true);
+            return true;
+          }
+          throw Exception('Device is offline and no matching saved account was found.');
+        }
+        rethrow;
+      }
+    }
+
     final savedEmail = prefs.getString(_keyUserEmail) ?? '';
     final savedPassword = prefs.getString(_keyUserPassword) ?? '';
 
-    // If no user exists yet, auto-register on first login attempt or validate
+    // If no user exists yet in local mode, auto-register on first login attempt
     if (savedEmail.isEmpty) {
       await registerUser(email, password);
       return true;
@@ -101,6 +152,12 @@ class ProfileRepository {
   }
 
   Future<void> logout() async {
+    final supabase = SupabaseService();
+    if (supabase.isConfigured) {
+      try {
+        await supabase.signOut();
+      } catch (_) {}
+    }
     await prefs.setBool(_keyIsLoggedIn, false);
   }
 

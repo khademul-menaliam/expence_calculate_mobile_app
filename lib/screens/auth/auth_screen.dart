@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/profile_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_toast.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'onboarding_screen.dart';
 import '../main_navigation_screen.dart';
 
@@ -50,12 +51,16 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       } else {
         await profileNotifier.registerUser(email, password);
         if (!mounted) return;
-        AppToast.show(context, 'Account registered successfully!');
+        AppToast.show(context, 'Account created successfully!');
         _navigateNext();
+      }
+    } on AuthException catch (e) {
+      if (mounted) {
+        AppToast.show(context, e.message);
       }
     } catch (e) {
       if (mounted) {
-        AppToast.show(context, 'Authentication failed: $e');
+        AppToast.show(context, e.toString().replaceAll('Exception: ', ''));
       }
     } finally {
       if (mounted) {
@@ -94,7 +99,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -116,7 +120,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    _isLogin ? 'Welcome Back' : 'Create Local Account',
+                    _isLogin ? 'Welcome Back' : 'Create Account',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 26,
@@ -126,8 +130,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   const SizedBox(height: 8),
                   Text(
                     _isLogin
-                        ? 'Sign in to access your budget & financial goals'
-                        : 'Set up local login credentials for offline access',
+                        ? 'Sign in to access and sync your expenses'
+                        : 'Sign up to backup your budget & sync data',
                     textAlign: TextAlign.center,
                     style: const TextStyle(color: AppTheme.textSecondary),
                   ),
@@ -189,13 +193,18 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     decoration: InputDecoration(
-                      labelText: 'Email Address / Username',
+                      labelText: 'Email Address',
+                      hintText: 'name@example.com',
                       prefixIcon: const Icon(Icons.email_outlined),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     validator: (val) {
                       if (val == null || val.trim().isEmpty) {
-                        return 'Please enter email/username';
+                        return 'Please enter your email address';
+                      }
+                      final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+                      if (!emailRegex.hasMatch(val.trim())) {
+                        return 'Please enter a valid email address';
                       }
                       return null;
                     },
@@ -205,7 +214,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     controller: _passwordController,
                     obscureText: _obscurePassword,
                     decoration: InputDecoration(
-                      labelText: 'Password / PIN',
+                      labelText: 'Password',
+                      hintText: 'Min. 6 characters',
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
                         icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
@@ -215,10 +225,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     ),
                     validator: (val) {
                       if (val == null || val.trim().isEmpty) {
-                        return 'Please enter password/PIN';
+                        return 'Please enter your password';
                       }
-                      if (val.length < 4) {
-                        return 'Password must be at least 4 characters';
+                      if (val.length < 6) {
+                        return 'Password must be at least 6 characters';
                       }
                       return null;
                     },
@@ -238,7 +248,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
                           )
                         : Text(
-                            _isLogin ? 'LOG IN' : 'REGISTER',
+                            _isLogin ? 'LOG IN' : 'CREATE ACCOUNT',
                             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                           ),
                   ),

@@ -131,12 +131,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            profile.userEmail.isNotEmpty ? profile.userEmail : 'Local User',
+                            profile.userEmail.isNotEmpty && profile.userEmail != 'local_user@offline'
+                                ? profile.userEmail
+                                : 'Guest / Offline User',
                             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                           ),
-                          const Text(
-                            'Offline Storage Active',
-                            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Icon(
+                                profile.userEmail != 'local_user@offline' && profile.userEmail.isNotEmpty
+                                    ? Icons.cloud_done_rounded
+                                    : Icons.cloud_off_rounded,
+                                size: 14,
+                                color: profile.userEmail != 'local_user@offline' && profile.userEmail.isNotEmpty
+                                    ? AppTheme.incomeColor
+                                    : AppTheme.textSecondary,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                profile.userEmail != 'local_user@offline' && profile.userEmail.isNotEmpty
+                                    ? 'Supabase Cloud Account (Synced)'
+                                    : 'Offline Local Storage Only',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: profile.userEmail != 'local_user@offline' && profile.userEmail.isNotEmpty
+                                      ? AppTheme.incomeColor
+                                      : AppTheme.textSecondary,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
