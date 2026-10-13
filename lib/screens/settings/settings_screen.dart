@@ -66,6 +66,50 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     AppToast.show(context, 'Settings updated successfully!');
   }
 
+  bool _isSyncing = false;
+
+  Future<void> _syncToCloud() async {
+    final profile = ref.read(profileNotifierProvider);
+    if (profile.userEmail == 'local_user@offline' || profile.userEmail.isEmpty) {
+      final registerFirst = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Cloud Account Required'),
+          content: const Text('To backup and sync your local data to the cloud, please log in or register a cloud account.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('CANCEL')),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryAccent),
+              child: const Text('SIGN IN / REGISTER', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      );
+      if (registerFirst == true && mounted) {
+        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AuthScreen()));
+      }
+      return;
+    }
+
+    setState(() => _isSyncing = true);
+    AppToast.show(context, 'Syncing local data to cloud...');
+    try {
+      final db = ref.read(databaseProvider);
+      final result = await SupabaseService().syncLocalDataToCloud(db: db, profile: profile);
+      if (!mounted) return;
+      AppToast.show(context, result.message);
+    } catch (e) {
+      if (mounted) {
+        AppToast.show(context, 'Sync error: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSyncing = false);
+      }
+    }
+  }
+
   Future<void> _logout() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -291,6 +335,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       : 'Running locally on device. Configure Supabase keys to sync across devices.',
                   style: const TextStyle(fontSize: 12),
                 ),
+              ),
+              const SizedBox(height: 12),
+
+              // Backup / Sync Local Data to Cloud Card
+              ListTile(
+                tileColor: AppTheme.cardBg,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: AppTheme.border),
+                ),
+                leading: _isSyncing
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2.5, color: AppTheme.primaryAccent),
+                      )
+                    : const Icon(Icons.cloud_upload_rounded, color: AppTheme.primaryAccent),
+                title: const Text('Backup Local Data to Cloud', style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: const Text('Upload offline expenses, regulars & goals to your cloud account', style: TextStyle(fontSize: 12)),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: _isSyncing ? null : _syncToCloud,
               ),
               const SizedBox(height: 24),
 

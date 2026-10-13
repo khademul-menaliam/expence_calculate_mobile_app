@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/expense_provider.dart';
 import '../../providers/profile_provider.dart';
+import '../../services/supabase_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_toast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -18,18 +20,44 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _botHoneypotController = TextEditingController();
+
   bool _isLogin = true;
   bool _obscurePassword = true;
   bool _isLoading = false;
+
+  DateTime? _lastSubmitTime;
+  int _consecutiveFailures = 0;
+  DateTime? _cooldownUntil;
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _botHoneypotController.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
+    // 1. Bot Honeypot Protection: Ignore automated bot scripts
+    if (_botHoneypotController.text.isNotEmpty) {
+      return;
+    }
+
+    // 2. Spam Rate Limiting Cooldown
+    final now = DateTime.now();
+    if (_cooldownUntil != null && now.isBefore(_cooldownUntil!)) {
+      final remaining = _cooldownUntil!.difference(now).inSeconds;
+      AppToast.show(context, 'Too many attempts. Please wait $remaining seconds.');
+      return;
+    }
+
+    if (!_isLogin && _lastSubmitTime != null && now.difference(_lastSubmitTime!).inSeconds < 5) {
+      AppToast.show(context, 'Please wait 5 seconds before submitting again.');
+      return;
+    }
+    _lastSubmitTime = now;
+
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
@@ -43,22 +71,29 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         final success = await profileNotifier.loginUser(email, password);
         if (!mounted) return;
         if (success) {
+          _consecutiveFailures = 0;
+          _cooldownUntil = null;
           AppToast.show(context, 'Login successful!');
           _navigateNext();
         } else {
+          _registerFailure();
           AppToast.show(context, 'Invalid credentials. Please check your password.');
         }
       } else {
         await profileNotifier.registerUser(email, password);
         if (!mounted) return;
+        _consecutiveFailures = 0;
+        _cooldownUntil = null;
         AppToast.show(context, 'Account created successfully!');
         _navigateNext();
       }
     } on AuthException catch (e) {
+      _registerFailure();
       if (mounted) {
         AppToast.show(context, e.message);
       }
     } catch (e) {
+      _registerFailure();
       if (mounted) {
         AppToast.show(context, e.toString().replaceAll('Exception: ', ''));
       }
@@ -66,6 +101,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       if (mounted) {
         setState(() => _isLoading = false);
       }
+    }
+  }
+
+  void _registerFailure() {
+    _consecutiveFailures++;
+    if (_consecutiveFailures >= 3) {
+      _cooldownUntil = DateTime.now().add(const Duration(seconds: 30));
+      _consecutiveFailures = 0;
     }
   }
 
@@ -88,6 +131,17 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   }
 
   void _navigateNext() {
+    // Automatically backup / sync existing local data to the newly logged in cloud account
+    try {
+      final db = ref.read(databaseProvider);
+      final profile = ref.read(profileNotifierProvider);
+      if (profile.userEmail != 'local_user@offline' && profile.userEmail.isNotEmpty) {
+        SupabaseService().syncLocalDataToCloud(db: db, profile: profile).catchError(
+              (_) => const SyncResult(success: false, message: ''),
+            );
+      }
+    } catch (_) {}
+
     final profile = ref.read(profileNotifierProvider);
     final nextScreen = !profile.hasCompletedOnboarding
         ? const OnboardingScreen()
@@ -189,6 +243,15 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
+                  // Honeypot field for anti-spam bot blocking (invisible to human users)
+                  Visibility(
+                    visible: false,
+                    maintainState: true,
+                    child: TextFormField(
+                      controller: _botHoneypotController,
+                      decoration: const InputDecoration(labelText: 'Leave empty'),
+                    ),
+                  ),
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
