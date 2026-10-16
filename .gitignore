@@ -31,7 +31,6 @@ GoogleService-Info.plist
 
 # iOS ephemeral & user data
 **/ios/Flutter/Generated.xcconfig
-temp_auto_push.bat
 **/ios/Flutter/flutter_export_environment.sh
 **/ios/Flutter/ephemeral/
 **/ios/Runner.xcodeproj/project.xcworkspace/xcuserdata/
@@ -66,4 +65,3 @@ app.*.map.json
 .widget_preview/
 
 .gitignore
-branch_structure.json
