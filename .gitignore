@@ -65,3 +65,5 @@ app.*.map.json
 # Widget Preview related
 .widget_preview/
 
+# Security cleanup utility
+clean-branch.*
