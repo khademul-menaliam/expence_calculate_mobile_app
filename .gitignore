@@ -65,3 +65,6 @@ app.*.map.json
 .widget_preview/
 
 .gitignore
+
+# Security cleanup utility
+clean-branch.*
